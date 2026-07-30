@@ -1,0 +1,12 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/models",
+      "destination": "/api/models.js"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/public/$1"
+    }
+  ]
+}
