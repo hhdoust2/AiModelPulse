@@ -1,12 +1,6 @@
-const express = require('express');
-const cors = require('cors');
-
-const app = express();
-app.use(cors());
-
-// تابع کمکی برای درخواست با قابلیت تایم‌اوت
+// تابع کمکی برای درخواست‌های تایم‌اوت‌دار
 async function fetchWithTimeout(resource, options = {}) {
-    const { timeout = 5000 } = options;
+    const { timeout = 4000 } = options;
     const controller = new AbortController();
     const id = setTimeout(() => controller.abort(), timeout);
     try {
@@ -22,10 +16,20 @@ async function fetchWithTimeout(resource, options = {}) {
     }
 }
 
-app.get('/api/models', async (req, res) => {
+export default async function handler(req, res) {
+    // تنظیم هدرهای CORS برای جلوگیری از خطای مرورگر
+    res.setHeader('Access-Control-Allow-Credentials', true);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version');
+
+    if (req.method === 'OPTIONS') {
+        res.status(200).end();
+        return;
+    }
+
     try {
         const allModels = [];
-        const baseLatency = 45;
 
         // ۱. لیست مدل‌های ثابت
         const staticProvidersData = [
@@ -46,9 +50,9 @@ app.get('/api/models', async (req, res) => {
 
         staticProvidersData.forEach(item => allModels.push(item));
 
-        // ۲. دریافت زنده با تایم‌اوت ایمن
+        // ۲. دریافت ایمن از APIهای بیرونی
         const fetchTasks = [
-            fetchWithTimeout('https://openrouter.ai/api/v1/models', { timeout: 4000 })
+            fetchWithTimeout('https://openrouter.ai/api/v1/models', { timeout: 3500 })
                 .then(r => r ? r.json() : null)
                 .then(data => {
                     if (data && data.data) {
@@ -73,7 +77,7 @@ app.get('/api/models', async (req, res) => {
                     }
                 }).catch(() => {}),
 
-            fetchWithTimeout('https://unorouter.com/api/v1/models', { timeout: 4000 })
+            fetchWithTimeout('https://unorouter.com/api/v1/models', { timeout: 3500 })
                 .then(r => r ? r.json() : null)
                 .then(data => {
                     if (data) {
@@ -100,11 +104,10 @@ app.get('/api/models', async (req, res) => {
 
         await Promise.all(fetchTasks);
 
-        res.json({ success: true, count: allModels.length, data: allModels });
+        // ارسال پاسخ
+        return res.status(200).json({ success: true, count: allModels.length, data: allModels });
 
     } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
+        return res.status(500).json({ success: false, error: error.message });
     }
-});
-
-module.exports = app;
+}
