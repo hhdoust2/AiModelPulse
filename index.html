@@ -3,160 +3,75 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>مانیتورینگ جامع APIهای رایگان AI</title>
+    <title>مانیتورینگ زنده‌ی مدل‌های رایگان هوش مصنوعی</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;700&display=swap');
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { background-color: #030712; color: #f3f4f6; font-family: 'Vazirmatn', sans-serif; padding: 0.75rem; min-height: 100vh; }
         .container { max-width: 1500px; margin: 0 auto; }
-        
-        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; border-bottom: 1px solid #1f2937; padding-bottom: 0.5rem; gap: 0.5rem; }
-        h1 { font-size: 1.1rem; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 0.4rem; }
+
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; border-bottom: 1px solid #1f2937; padding-bottom: 0.5rem; gap: 0.5rem; flex-wrap: wrap; }
+        h1 { font-size: 1.05rem; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 0.4rem; }
         h1 i { color: #22d3ee; }
+        .header-actions { display: flex; gap: 0.4rem; }
         .btn { background-color: #0891b2; color: white; border: none; padding: 0.35rem 0.75rem; border-radius: 0.35rem; font-size: 0.75rem; cursor: pointer; transition: 0.2s; }
         .btn:hover { background-color: #06b6d4; }
+        .btn-secondary { background-color: #374151; }
+        .btn-secondary:hover { background-color: #4b5563; }
 
-        .guide-accordion {
-            background-color: #111827;
-            border: 1px solid #1f2937;
-            border-radius: 0.5rem;
-            margin-bottom: 0.75rem;
-            overflow: hidden;
-        }
+        .status-bar { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-bottom: 0.75rem; font-size: 0.7rem; color: #9ca3af; }
+        .status-chip { background: #111827; border: 1px solid #1f2937; padding: 0.25rem 0.6rem; border-radius: 999px; display: flex; align-items: center; gap: 0.3rem; }
+        .status-chip b { color: #38bdf8; }
+        .status-error { color: #f87171; border-color: #7f1d1d; }
+        .status-warn { color: #fbbf24; border-color: #78350f; }
 
-        .guide-header {
-            background-color: #1a2234;
-            padding: 0.6rem 0.8rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            cursor: pointer;
-            user-select: none;
-            border-bottom: 1px solid #1f2937;
-        }
+        .notice { background-color: #111827; border: 1px solid #1f2937; border-radius: 0.5rem; padding: 0.7rem 0.9rem; margin-bottom: 0.75rem; font-size: 0.75rem; line-height: 1.7; color: #d1d5db; }
+        .notice b { color: #38bdf8; }
+        .notice code { direction: ltr; display: inline-block; background: #0b0f19; padding: 0.05rem 0.35rem; border-radius: 0.2rem; color: #a7f3d0; font-size: 0.7rem; }
 
-        .guide-header h2 { font-size: 0.85rem; color: #38bdf8; display: flex; align-items: center; gap: 0.4rem; }
-        .guide-header i.arrow { transition: transform 0.3s; color: #9ca3af; font-size: 0.8rem; }
-        .guide-accordion.open .guide-header i.arrow { transform: rotate(180deg); }
-
-        .guide-content {
-            display: none;
-            padding: 0.8rem;
-            font-size: 0.75rem;
-            line-height: 1.6;
-            color: #d1d5db;
-        }
-
-        .guide-accordion.open .guide-content { display: block; }
-
-        .guide-grid {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 0.75rem;
-        }
-        @media (min-width: 768px) {
-            .guide-grid { grid-template-columns: repeat(3, 1fr); }
-        }
-
-        .guide-card {
-            background: #0b0f19;
-            border: 1px solid #1f2937;
-            border-radius: 0.4rem;
-            padding: 0.6rem;
-        }
-
-        .guide-card h3 {
-            font-size: 0.78rem;
-            color: #22d3ee;
-            margin-bottom: 0.4rem;
-            display: flex;
-            align-items: center;
-            gap: 0.3rem;
-            border-bottom: 1px solid #1f2937;
-            padding-bottom: 0.3rem;
-        }
-
-        .guide-card ul { list-style: none; }
-        .guide-card li { margin-bottom: 0.3rem; font-size: 0.72rem; }
-        .guide-card strong { color: #f9fafb; }
+        /* پنل کلیدهای API */
+        .keys-panel { background-color: #111827; border: 1px solid #1f2937; border-radius: 0.5rem; padding: 0.8rem; margin-bottom: 0.75rem; display: none; }
+        .keys-panel.open { display: block; }
+        .keys-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 0.6rem; margin-top: 0.6rem; }
+        .key-field label { display: flex; align-items: center; gap: 0.3rem; font-size: 0.7rem; color: #9ca3af; margin-bottom: 0.25rem; }
+        .key-field label .free-dot { width: 6px; height: 6px; border-radius: 50%; background: #34d399; display: inline-block; }
+        .key-field label .paid-dot { width: 6px; height: 6px; border-radius: 50%; background: #fbbf24; display: inline-block; }
+        .key-field input { width: 100%; background-color: #0b0f19; border: 1px solid #1f2937; border-radius: 0.35rem; padding: 0.35rem 0.5rem; color: #fff; font-size: 0.7rem; direction: ltr; text-align: left; font-family: monospace; }
+        .keys-footer { margin-top: 0.7rem; display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+        .keys-note { font-size: 0.65rem; color: #6b7280; }
 
         .filters { display: grid; grid-template-columns: 2fr 1fr; gap: 0.5rem; margin-bottom: 0.75rem; }
         .input-box, .select-box { width: 100%; background-color: #111827; border: 1px solid #1f2937; border-radius: 0.35rem; padding: 0.4rem 0.6rem; color: #fff; font-family: inherit; font-size: 0.75rem; outline: none; }
         .table-wrapper { width: 100%; overflow-x: auto; border: 1px solid #1f2937; border-radius: 0.5rem; background-color: #111827; }
-        
+
         table { width: 100%; border-collapse: collapse; text-align: right; font-size: 0.75rem; }
-        
-        th { 
-            background-color: #1f2937; 
-            color: #38bdf8; 
-            padding: 0.3rem 0.4rem; 
-            font-weight: 700; 
-            border-bottom: 1px solid #374151; 
-            white-space: normal; 
-            line-height: 1.2;
-            vertical-align: middle;
-            text-align: center;
-            font-size: 0.72rem;
-        }
 
-        td { 
-            padding: 0.25rem 0.4rem;
-            border-bottom: 1px solid #111827; 
-            color: #d1d5db; 
-            vertical-align: middle; 
-            text-align: center;
-            line-height: 1.2;
+        th {
+            background-color: #1f2937; color: #38bdf8; padding: 0.3rem 0.4rem; font-weight: 700;
+            border-bottom: 1px solid #374151; white-space: normal; line-height: 1.2;
+            vertical-align: middle; text-align: center; font-size: 0.72rem;
         }
-
+        td { padding: 0.3rem 0.4rem; border-bottom: 1px solid #111827; color: #d1d5db; vertical-align: middle; text-align: center; line-height: 1.3; }
         tr:nth-child(even) { background-color: #0b0f19; }
         tr:hover td { background-color: #1a2332; }
 
-        /* بج‌های اختصاصی پروایدرها */
-        .badge { font-size: 0.65rem; padding: 0.1rem 0.34rem; border-radius: 0.25rem; font-weight: 500; }
-        .badge-provider { background: #1f2937; color: #22d3ee; border: 1px solid #374151; }
-        .badge-unorouter { background: #311b92; color: #b388ff; border: 1px solid #512da8; }
-        .badge-google { background: #1e3a8a; color: #60a5fa; border: 1px solid #1d4ed8; }
-        .badge-github { background: #27272a; color: #f4f4f5; border: 1px solid #52525b; }
-        .badge-together { background: #4c1d95; color: #c084fc; border: 1px solid #6d28d9; }
-        .badge-silicon { background: #831843; color: #f472b6; border: 1px solid #9d174d; }
-        .badge-cloudflare { background: #7c2d12; color: #fb923c; border: 1px solid #9a3412; }
-        .badge-huggingface { background: #713f12; color: #facc15; border: 1px solid #854d0e; }
-        .badge-fireworks { background: #064e3b; color: #34d399; border: 1px solid #065f46; }
-        .badge-novita { background: #701a75; color: #f0abfc; border: 1px solid #86198f; }
+        .badge { font-size: 0.65rem; padding: 0.15rem 0.4rem; border-radius: 0.25rem; font-weight: 500; background: #1f2937; color: #22d3ee; border: 1px solid #374151; }
+        .badge-vision { background: #312e81; color: #a5b4fc; }
+        .badge-text { background: #1e293b; color: #94a3b8; }
+        .badge-reasoning { background: #4a1d1d; color: #fca5a5; }
+        .badge-none { background: #1e293b; color: #6b7280; }
+        .badge-source { background: #0c4a6e; color: #7dd3fc; }
+        .badge-access-free { background: #064e3b; color: #6ee7b7; }
+        .badge-access-paid { background: #451a03; color: #fbbf24; }
 
-        .badge-vision { background: #312e81; color: #a5b4fc; font-size: 0.65rem; padding: 0.1rem 0.3rem; border-radius: 0.2rem; }
-        .badge-text { background: #1e293b; color: #94a3b8; font-size: 0.65rem; padding: 0.1rem 0.3rem; border-radius: 0.2rem; }
-        
-        .status-online { color: #34d399; font-weight: 600; }
-        .status-degraded { color: #fbbf24; font-weight: 600; }
-        .status-offline { color: #f87171; font-weight: 600; }
-        
-        .model-name { font-weight: 700; color: #f9fafb; display: inline-block; font-size: 0.78rem; }
-        .model-id-container, .endpoint-container { display: flex; align-items: center; justify-content: center; gap: 0.3rem; font-size: 0.65rem; color: #6b7280; font-family: monospace; }
-        
-        .copy-btn {
-            background: none;
-            border: none;
-            color: #9ca3af;
-            cursor: pointer;
-            font-size: 0.65rem;
-            padding: 0.1rem 0.2rem;
-            border-radius: 0.2rem;
-            transition: 0.1s;
-        }
+        .model-name { font-weight: 700; color: #f9fafb; display: block; font-size: 0.78rem; text-align: right; }
+        .model-desc { color: #6b7280; font-size: 0.65rem; text-align: right; margin-top: 0.15rem; line-height: 1.4; }
+        .model-id-container { display: flex; align-items: center; justify-content: flex-start; gap: 0.3rem; font-size: 0.65rem; color: #38bdf8; font-family: monospace; direction: ltr; margin-top: 0.2rem; }
+
+        .copy-btn { background: none; border: none; color: #9ca3af; cursor: pointer; font-size: 0.65rem; padding: 0.1rem 0.2rem; border-radius: 0.2rem; transition: 0.1s; }
         .copy-btn:hover { color: #22d3ee; background: #1f2937; }
         .copy-success { color: #34d399 !important; font-size: 0.6rem; }
-
-        .endpoint-text {
-            max-width: 180px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            color: #38bdf8;
-            direction: ltr;
-            text-align: left;
-        }
 
         .pagination { display: flex; justify-content: center; align-items: center; gap: 0.75rem; margin: 0.75rem 0; }
         .loading-box { text-align: center; padding: 2rem 0; }
@@ -167,65 +82,83 @@
 
     <div class="container">
         <header>
-            <h1><i class="fa-solid fa-bolt"></i> مانیتورینگ ۱۱ پروایدر جامع APIهای AI</h1>
-            <button onclick="fetchAllModels()" class="btn"><i class="fa-solid fa-rotate"></i> بروزرسانی</button>
+            <h1><i class="fa-solid fa-bolt"></i> مدل‌های رایگان هوش مصنوعی (زنده)</h1>
+            <div class="header-actions">
+                <button onclick="toggleKeysPanel()" class="btn btn-secondary"><i class="fa-solid fa-key"></i> کلیدهای API</button>
+                <button onclick="fetchAllModels()" class="btn"><i class="fa-solid fa-rotate"></i> بروزرسانی</button>
+            </div>
         </header>
 
-        <div class="guide-accordion" id="guideAccordion">
-            <div class="guide-header" onclick="toggleGuide()">
-                <h2><i class="fa-solid fa-compass"></i> راهنمای انتخاب از میان ۱۱ پروایدر برتر</h2>
-                <i class="fa-solid fa-chevron-down arrow"></i>
-            </div>
-            <div class="guide-content">
-                <div class="guide-grid">
-                    <div class="guide-card">
-                        <h3><i class="fa-solid fa-brain"></i> ۱. پروایدرهای خاص و متن‌باز</h3>
-                        <ul>
-                            <li><strong>Hugging Face:</strong> دسترسی مجانی به هزاران مدل متن‌باز با API مستقیم.</li>
-                            <li><strong>Fireworks AI:</strong> اینفرانس فوق‌العاده سریع با اعتبار اولیه مجانی.</li>
-                            <li><strong>Novita AI:</strong> سرویسی عالی برای مدل‌های پردازش متن آزاد و تولید تصویر.</li>
-                        </ul>
-                    </div>
-                    <div class="guide-card">
-                        <h3><i class="fa-solid fa-bolt"></i> ۲. غول‌های سرعت و حجم</h3>
-                        <ul>
-                            <li><strong>Google AI Studio:</strong> تا ۲ میلیون توکن ورودی کاملاً رایگان.</li>
-                            <li><strong>Groq & Together:</strong> بیشترین سرعت پاسخ‌دهی (Token/s) در دنیا.</li>
-                            <li><strong>SiliconFlow:</strong> بهترین گزینه برای سری DeepSeek R1/V3.</li>
-                        </ul>
-                    </div>
-                    <div class="guide-card">
-                        <h3><i class="fa-solid fa-cloud"></i> ۳. ابری و مسیریاب‌ها</h3>
-                        <ul>
-                            <li><strong>GitHub & Cloudflare:</strong> هاستینگ قدرتمند روی شبکه ابری مطمئن.</li>
-                            <li><strong>OpenRouter & Unorouter:</strong> دسترسی یکجا به ده‌ها مدل رایگان بدون دردسر.</li>
-                        </ul>
-                    </div>
+        <div class="notice">
+            <b>درباره‌ی این داشبورد:</b> بخش OpenRouter بدون هیچ کلیدی و مستقیم از اندپوینت عمومی
+            <code>https://openrouter.ai/api/v1/models</code> خوانده می‌شود (فیلتر: قیمت ورودی و خروجی هر دو صفر).
+            برای هر پروایدر دیگر (Groq، Google AI Studio، SiliconFlow، Together AI، Hugging Face، Fireworks، Novita، Cloudflare)
+            روی «کلیدهای API» بزنید و کلید شخصی خودتان را وارد کنید تا مدل‌های همان پروایدر هم به‌صورت زنده از اندپوینت رسمی‌اش خوانده شود.
+            هیچ کلیدی روی سرور ذخیره نمی‌شود؛ فقط در مرورگر خودتان (localStorage) نگه داشته می‌شود و هر بار همراه درخواست فرستاده می‌شود.
+            این صفحه هر <b>۵ دقیقه</b> خودش را خودکار بروزرسانی می‌کند.
+            <br><br>
+            <b style="color:#fbbf24;">توجه:</b> «GitHub Models» چون در ۳۰ ژوئیه ۲۰۲۶ توسط گیت‌هاب کاملاً تعطیل شد، از این پروژه حذف شده است.
+        </div>
+
+        <div id="keysPanel" class="keys-panel">
+            <strong style="font-size: 0.8rem;">کلیدهای API شخصی شما (اختیاری — فقط در مرورگر شما ذخیره می‌شود)</strong>
+            <div class="keys-grid">
+                <div class="key-field">
+                    <label><span class="free-dot"></span> Groq — رایگان</label>
+                    <input type="password" id="key_groq" placeholder="gsk_...">
+                </div>
+                <div class="key-field">
+                    <label><span class="free-dot"></span> Google AI Studio — رایگان محدود</label>
+                    <input type="password" id="key_google" placeholder="AIza...">
+                </div>
+                <div class="key-field">
+                    <label><span class="free-dot"></span> Hugging Face — رایگان محدود</label>
+                    <input type="password" id="key_huggingface" placeholder="hf_...">
+                </div>
+                <div class="key-field">
+                    <label><span class="paid-dot"></span> SiliconFlow — عمدتاً پولی</label>
+                    <input type="password" id="key_siliconflow" placeholder="sk-...">
+                </div>
+                <div class="key-field">
+                    <label><span class="paid-dot"></span> Together AI — پولی (اعتبار اولیه)</label>
+                    <input type="password" id="key_together" placeholder="API Key">
+                </div>
+                <div class="key-field">
+                    <label><span class="paid-dot"></span> Fireworks AI — پولی</label>
+                    <input type="password" id="key_fireworks" placeholder="fw_...">
+                </div>
+                <div class="key-field">
+                    <label><span class="paid-dot"></span> Novita AI — پولی (اعتبار اولیه)</label>
+                    <input type="password" id="key_novita" placeholder="API Key">
+                </div>
+                <div class="key-field">
+                    <label><span class="free-dot"></span> Cloudflare — Account ID</label>
+                    <input type="text" id="key_cloudflareAccountId" placeholder="Account ID">
+                </div>
+                <div class="key-field">
+                    <label><span class="free-dot"></span> Cloudflare — API Token (رایگان با سهمیه)</label>
+                    <input type="password" id="key_cloudflareToken" placeholder="API Token">
                 </div>
             </div>
+            <div class="keys-footer">
+                <button onclick="saveKeysAndFetch()" class="btn"><i class="fa-solid fa-floppy-disk"></i> ذخیره و دریافت زنده</button>
+                <button onclick="clearKeys()" class="btn btn-secondary"><i class="fa-solid fa-trash"></i> پاک کردن همه‌ی کلیدها</button>
+                <span class="keys-note">کلیدها فقط سمت مرورگر شما ذخیره می‌شوند و در هر بروزرسانی به‌صورت مستقیم برای واکشی زنده به تابع سرور فرستاده می‌شوند.</span>
+            </div>
         </div>
+
+        <div class="status-bar" id="statusBar"></div>
 
         <div class="filters">
             <input type="text" id="searchInput" oninput="resetAndFilter()" placeholder="جستجوی مدل یا شناسه..." class="input-box">
             <select id="providerFilter" onchange="resetAndFilter()" class="select-box">
-                <option value="all">همه پروایدرها (۱۱ پروایدر)</option>
-                <option value="Hugging Face">Hugging Face</option>
-                <option value="Fireworks AI">Fireworks AI</option>
-                <option value="Novita AI">Novita AI</option>
-                <option value="Google">Google AI Studio</option>
-                <option value="GitHub">GitHub Models</option>
-                <option value="SiliconFlow">SiliconFlow</option>
-                <option value="Together AI">Together AI</option>
-                <option value="Cloudflare">Cloudflare Workers</option>
-                <option value="Groq">Groq</option>
-                <option value="Unorouter">Unorouter</option>
-                <option value="OpenRouter">OpenRouter</option>
+                <option value="all">همه‌ی منابع</option>
             </select>
         </div>
 
         <div id="loading" class="loading-box">
             <i class="fa-solid fa-spinner fa-spin fa-lg" style="color: #22d3ee;"></i>
-            <p style="color: #9ca3af; margin-top: 0.3rem; font-size: 0.75rem;">در حال دریافت اطلاعات از سرور...</p>
+            <p style="color: #9ca3af; margin-top: 0.3rem; font-size: 0.75rem;">در حال دریافت زنده از پروایدرها...</p>
         </div>
 
         <div id="tableContainer" class="table-wrapper hidden">
@@ -233,14 +166,14 @@
                 <thead>
                     <tr>
                         <th style="width: 4%;">ردیف</th>
-                        <th style="width: 26%; text-align: right;">نام مدل / شناسه</th>
-                        <th>پروایدر</th>
-                        <th>تأخیر<br>(Latency)</th>
-                        <th>وضعیت</th>
-                        <th>موفقیت<br>(Success)</th>
-                        <th>تصویر</th>
-                        <th>حجم متن<br>(Context)</th>
-                        <th style="width: 20%;">API Endpoint</th>
+                        <th style="width: 22%; text-align: right;">نام / شناسه مدل</th>
+                        <th>منبع (Source)</th>
+                        <th>پروایدر سازنده</th>
+                        <th>نوع دسترسی</th>
+                        <th>حجم متن</th>
+                        <th>نوع ورودی</th>
+                        <th>استدلال</th>
+                        <th style="width: 16%;">API Endpoint</th>
                     </tr>
                 </thead>
                 <tbody id="tableBody"></tbody>
@@ -259,84 +192,134 @@
         let filteredData = [];
         let currentPage = 1;
         const pageSize = 40;
+        const AUTO_REFRESH_MS = 5 * 60 * 1000; // بروزرسانی خودکار هر ۵ دقیقه
+        let refreshTimer = null;
+        const KEY_FIELDS = ['groq', 'google', 'huggingface', 'siliconflow', 'together', 'fireworks', 'novita', 'cloudflareAccountId', 'cloudflareToken'];
+        const STORAGE_KEY = 'freeAiModelsDashboard.apiKeys';
 
-        const endpoints = {
-            'Hugging Face': 'https://api-inference.huggingface.co/v1/chat/completions',
-            'Fireworks AI': 'https://api.fireworks.ai/inference/v1/chat/completions',
-            'Novita AI': 'https://api.novita.ai/v3/openai/chat/completions',
-            'Google': 'https://generativelanguage.googleapis.com/v1beta/models',
-            'GitHub': 'https://models.inference.ai.azure.com/chat/completions',
-            'SiliconFlow': 'https://api.siliconflow.cn/v1/chat/completions',
-            'Together AI': 'https://api.together.xyz/v1/chat/completions',
-            'Cloudflare': 'https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/v1/chat/completions',
-            'Groq': 'https://api.groq.com/openai/v1/chat/completions',
-            'Unorouter': 'https://unorouter.com/api/v1/chat/completions',
-            'OpenRouter': 'https://openrouter.ai/api/v1/chat/completions'
-        };
+        function toggleKeysPanel() {
+            document.getElementById('keysPanel').classList.toggle('open');
+        }
 
-        function toggleGuide() {
-            document.getElementById('guideAccordion').classList.toggle('open');
+        function loadKeysIntoInputs() {
+            try {
+                const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+                KEY_FIELDS.forEach((f) => {
+                    const el = document.getElementById('key_' + f);
+                    if (el && saved[f]) el.value = saved[f];
+                });
+            } catch {}
+        }
+
+        function collectKeysFromInputs() {
+            const keys = {};
+            KEY_FIELDS.forEach((f) => {
+                const el = document.getElementById('key_' + f);
+                if (el && el.value.trim()) keys[f] = el.value.trim();
+            });
+            return keys;
+        }
+
+        function saveKeysAndFetch() {
+            const keys = collectKeysFromInputs();
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(keys));
+            fetchAllModels();
+        }
+
+        function clearKeys() {
+            localStorage.removeItem(STORAGE_KEY);
+            KEY_FIELDS.forEach((f) => {
+                const el = document.getElementById('key_' + f);
+                if (el) el.value = '';
+            });
+            fetchAllModels();
         }
 
         function copyToClipboard(text, btnElement) {
             navigator.clipboard.writeText(text).then(() => {
                 const originalHTML = btnElement.innerHTML;
                 btnElement.innerHTML = '<i class="fa-solid fa-check copy-success"></i>';
-                setTimeout(() => {
-                    btnElement.innerHTML = originalHTML;
-                }, 1200);
+                setTimeout(() => { btnElement.innerHTML = originalHTML; }, 1200);
             });
         }
 
-        // دریافت یکجای تمام دیتای ۱۱ پروایدر از سرور اختصاصی خودتان
+        function renderStatusBar(meta, error) {
+            const bar = document.getElementById('statusBar');
+            if (error) {
+                bar.innerHTML = `<span class="status-chip status-error"><i class="fa-solid fa-triangle-exclamation"></i> خطا در دریافت: ${error}</span>`;
+                return;
+            }
+            const fetchedAt = new Date(meta.fetchedAt).toLocaleTimeString('fa-IR');
+            let html = `
+                <span class="status-chip"><i class="fa-solid fa-clock"></i> آخرین بروزرسانی: <b>${fetchedAt}</b></span>
+                <span class="status-chip"><i class="fa-solid fa-gauge-high"></i> زمان پاسخ OpenRouter: <b>${meta.apiLatencyMs} ms</b></span>
+                <span class="status-chip"><i class="fa-solid fa-list-check"></i> مدل‌های OpenRouter اسکن‌شده: <b>${meta.totalModelsScanned}</b></span>
+                <span class="status-chip"><i class="fa-solid fa-gift"></i> کل ردیف‌های جدول: <b>${meta.freeModelsCount}</b></span>
+                <span class="status-chip"><i class="fa-solid fa-hourglass-half"></i> بروزرسانی خودکار بعدی تا ۵ دقیقه دیگر</span>
+            `;
+            if (meta.providerErrors && meta.providerErrors.length) {
+                meta.providerErrors.forEach((err) => {
+                    html += `<span class="status-chip status-warn"><i class="fa-solid fa-circle-exclamation"></i> ${err}</span>`;
+                });
+            }
+            bar.innerHTML = html;
+        }
+
+        function populateProviderFilter() {
+            const select = document.getElementById('providerFilter');
+            const current = select.value;
+            const sources = [...new Set(allModelsData.map(m => m.sourceProvider))].sort();
+            select.innerHTML = '<option value="all">همه‌ی منابع (' + sources.length + ')</option>' +
+                sources.map(p => `<option value="${p}">${p}</option>`).join('');
+            if (sources.includes(current)) select.value = current;
+        }
+
         async function fetchAllModels() {
             document.getElementById('loading').classList.remove('hidden');
             document.getElementById('tableContainer').classList.add('hidden');
             document.getElementById('pagination').classList.add('hidden');
 
+            const keys = collectKeysFromInputs();
+
             try {
-                const response = await fetch('/api/models');
+                const response = await fetch('/api/models', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ keys })
+                });
                 const result = await response.json();
 
                 if (result.success && result.data) {
                     allModelsData = result.data;
+                    renderStatusBar(result, null);
+                    populateProviderFilter();
+                } else {
+                    renderStatusBar(null, result.error || 'پاسخ نامعتبر از سرور');
                 }
             } catch (error) {
-                console.error("خطا در دریافت اطلاعات از سرور:", error);
+                renderStatusBar(null, error.message);
             }
 
             document.getElementById('loading').classList.add('hidden');
             document.getElementById('tableContainer').classList.remove('hidden');
             resetAndFilter();
+
+            if (refreshTimer) clearTimeout(refreshTimer);
+            refreshTimer = setTimeout(fetchAllModels, AUTO_REFRESH_MS);
         }
 
         function resetAndFilter() {
             currentPage = 1;
             const search = document.getElementById('searchInput').value.toLowerCase();
-            const provider = document.getElementById('providerFilter').value;
+            const source = document.getElementById('providerFilter').value;
 
             filteredData = allModelsData.filter(m => {
                 const matchSearch = m.name.toLowerCase().includes(search) || m.id.toLowerCase().includes(search);
-                const matchProvider = provider === 'all' || m.provider === provider;
-                return matchSearch && matchProvider;
+                const matchSource = source === 'all' || m.sourceProvider === source;
+                return matchSearch && matchSource;
             });
 
             renderTable();
-        }
-
-        function getBadgeClass(provider) {
-            switch(provider) {
-                case 'Google': return 'badge-google';
-                case 'GitHub': return 'badge-github';
-                case 'SiliconFlow': return 'badge-silicon';
-                case 'Together AI': return 'badge-together';
-                case 'Cloudflare': return 'badge-cloudflare';
-                case 'Hugging Face': return 'badge-huggingface';
-                case 'Fireworks AI': return 'badge-fireworks';
-                case 'Novita AI': return 'badge-novita';
-                case 'Unorouter': return 'badge-unorouter';
-                default: return 'badge-provider';
-            }
         }
 
         function renderTable() {
@@ -357,31 +340,30 @@
             let html = '';
             pageItems.forEach((m, index) => {
                 const rowNumber = start + index + 1;
-                const badgeClass = getBadgeClass(m.provider);
-                const endpointUrl = endpoints[m.provider] || 'https://api.openai.com/v1/chat/completions';
-
+                const isPaidLooking = m.accessType && m.accessType.includes('پولی');
                 html += `
                     <tr>
                         <td style="color: #9ca3af; font-family: monospace;">${rowNumber}</td>
-                        <td style="text-align: right;">
+                        <td>
                             <span class="model-name">${m.name}</span>
-                            <div class="model-id-container" style="justify-content: flex-start;">
+                            <div class="model-desc">${m.description || ''}</div>
+                            <div class="model-id-container">
                                 <span>${m.id}</span>
                                 <button class="copy-btn" onclick="copyToClipboard('${m.id}', this)" title="کپی شناسه">
                                     <i class="fa-regular fa-copy"></i>
                                 </button>
                             </div>
                         </td>
-                        <td><span class="badge ${badgeClass}">${m.provider}</span></td>
-                        <td style="color: #a7f3d0; font-family: monospace; font-weight: bold;">⚡ ${m.latency}</td>
-                        <td><span class="${m.statusClass}">${m.uptime}</span></td>
-                        <td style="font-weight: bold; color: ${parseInt(m.successRate) < 85 ? '#f87171' : '#38bdf8'};">${m.successRate}</td>
-                        <td><span class="${m.isVision ? 'badge-vision' : 'badge-text'}">${m.vision}</span></td>
-                        <td><strong style="color: #e5e7eb;">${m.context}</strong></td>
+                        <td><span class="badge badge-source">${m.sourceProvider}</span></td>
+                        <td><span class="badge">${m.originProvider}</span></td>
+                        <td><span class="badge ${isPaidLooking ? 'badge-access-paid' : 'badge-access-free'}">${m.accessType}</span></td>
+                        <td><strong style="color: #e5e7eb;">${m.contextLabel}</strong></td>
+                        <td><span class="${m.isVision ? 'badge-vision' : 'badge-text'} badge">${m.isVision ? 'متن + تصویر 👁️' : 'فقط متن 📝'}</span></td>
+                        <td><span class="${m.reasoning ? 'badge-reasoning' : 'badge-none'} badge">${m.reasoning ? 'دارد' : 'ندارد'}</span></td>
                         <td>
-                            <div class="endpoint-container">
-                                <span class="endpoint-text" title="${endpointUrl}">${endpointUrl}</span>
-                                <button class="copy-btn" onclick="copyToClipboard('${endpointUrl}', this)" title="کپی Endpoint">
+                            <div class="model-id-container" style="justify-content: center;">
+                                <span style="max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${m.endpoint}">${m.endpoint}</span>
+                                <button class="copy-btn" onclick="copyToClipboard('${m.endpoint}', this)" title="کپی Endpoint">
                                     <i class="fa-regular fa-copy"></i>
                                 </button>
                             </div>
@@ -395,7 +377,7 @@
             const maxPage = Math.ceil(filteredData.length / pageSize);
             if (maxPage > 1) {
                 pagination.classList.remove('hidden');
-                document.getElementById('pageInfo').innerText = `صفحه ${currentPage} از ${maxPage} (کل مدل‌ها: ${filteredData.length})`;
+                document.getElementById('pageInfo').innerText = `صفحه ${currentPage} از ${maxPage} (کل ردیف‌ها: ${filteredData.length})`;
                 document.getElementById('prevBtn').disabled = currentPage === 1;
                 document.getElementById('nextBtn').disabled = currentPage === maxPage;
             } else {
@@ -408,7 +390,10 @@
             renderTable();
         }
 
-        document.addEventListener('DOMContentLoaded', fetchAllModels);
+        document.addEventListener('DOMContentLoaded', () => {
+            loadKeysIntoInputs();
+            fetchAllModels();
+        });
     </script>
 </body>
 </html>
