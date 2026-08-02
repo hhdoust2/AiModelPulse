@@ -3,126 +3,83 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>مانیتورینگ زنده‌ی مدل‌های رایگان هوش مصنوعی</title>
+    <title>مدل‌های رایگان — Groq, OpenRouter, UnoRouter, Google AI, Cloudflare, Together, anymodel.org</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;700&display=swap');
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { background-color: #030712; color: #f3f4f6; font-family: 'Vazirmatn', sans-serif; padding: 0.75rem; min-height: 100vh; }
-        .container { max-width: 1550px; margin: 0 auto; }
-
+        .container { max-width: 1400px; margin: 0 auto; }
         header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; border-bottom: 1px solid #1f2937; padding-bottom: 0.5rem; gap: 0.5rem; flex-wrap: wrap; }
-        h1 { font-size: 1.05rem; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 0.4rem; }
-        h1 i { color: #22d3ee; }
-        .header-actions { display: flex; gap: 0.4rem; }
-        .btn { background-color: #0891b2; color: white; border: none; padding: 0.35rem 0.75rem; border-radius: 0.35rem; font-size: 0.75rem; cursor: pointer; transition: 0.2s; }
+        h1 { font-size: 1rem; font-weight: 700; color: #fff; }
+        .btn { background-color: #0891b2; color: white; border: none; padding: 0.35rem 0.75rem; border-radius: 0.35rem; font-size: 0.75rem; cursor: pointer; }
         .btn:hover { background-color: #06b6d4; }
         .btn-secondary { background-color: #374151; }
         .btn-secondary:hover { background-color: #4b5563; }
 
-        .status-bar { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-bottom: 0.75rem; font-size: 0.7rem; color: #9ca3af; }
-        .status-chip { background: #111827; border: 1px solid #1f2937; padding: 0.25rem 0.6rem; border-radius: 999px; display: flex; align-items: center; gap: 0.3rem; }
-        .status-chip b { color: #38bdf8; }
-        .status-error { color: #f87171; border-color: #7f1d1d; }
-        .status-warn { color: #fbbf24; border-color: #78350f; }
-
-        .notice { background-color: #111827; border: 1px solid #1f2937; border-radius: 0.5rem; padding: 0.7rem 0.9rem; margin-bottom: 0.75rem; font-size: 0.75rem; line-height: 1.7; color: #d1d5db; }
-        .notice b { color: #38bdf8; }
-        .notice code { direction: ltr; display: inline-block; background: #0b0f19; padding: 0.05rem 0.35rem; border-radius: 0.2rem; color: #a7f3d0; font-size: 0.7rem; }
+        .rule { background-color: #111827; border: 1px solid #1f2937; border-radius: 0.5rem; padding: 0.6rem 0.9rem; margin-bottom: 0.75rem; font-size: 0.72rem; line-height: 1.7; color: #d1d5db; }
+        .rule b { color: #38bdf8; }
 
         .keys-panel { background-color: #111827; border: 1px solid #1f2937; border-radius: 0.5rem; padding: 0.8rem; margin-bottom: 0.75rem; display: none; }
         .keys-panel.open { display: block; }
-        .keys-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 0.6rem; margin-top: 0.6rem; }
-        .key-field label { display: flex; align-items: center; gap: 0.3rem; font-size: 0.7rem; color: #9ca3af; margin-bottom: 0.25rem; }
-        .key-field label .free-dot { width: 6px; height: 6px; border-radius: 50%; background: #34d399; display: inline-block; }
-        .key-field label .paid-dot { width: 6px; height: 6px; border-radius: 50%; background: #fbbf24; display: inline-block; }
+        .keys-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.6rem; margin-top: 0.6rem; }
+        .key-field label { display: block; font-size: 0.7rem; color: #9ca3af; margin-bottom: 0.25rem; }
         .key-field input { width: 100%; background-color: #0b0f19; border: 1px solid #1f2937; border-radius: 0.35rem; padding: 0.35rem 0.5rem; color: #fff; font-size: 0.7rem; direction: ltr; text-align: left; font-family: monospace; }
-        .keys-footer { margin-top: 0.7rem; display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
-        .keys-note { font-size: 0.65rem; color: #6b7280; }
+        .keys-footer { margin-top: 0.7rem; display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+
+        .status-bar { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.75rem; font-size: 0.7rem; color: #9ca3af; }
+        .status-chip { background: #111827; border: 1px solid #1f2937; padding: 0.25rem 0.6rem; border-radius: 999px; }
+        .status-chip b { color: #38bdf8; }
+        .status-warn { color: #fbbf24; border-color: #78350f; }
 
         .filters { display: grid; grid-template-columns: 2fr 1fr; gap: 0.5rem; margin-bottom: 0.75rem; }
-        .input-box, .select-box { width: 100%; background-color: #111827; border: 1px solid #1f2937; border-radius: 0.35rem; padding: 0.4rem 0.6rem; color: #fff; font-family: inherit; font-size: 0.75rem; outline: none; }
+        .input-box, .select-box { width: 100%; background-color: #111827; border: 1px solid #1f2937; border-radius: 0.35rem; padding: 0.4rem 0.6rem; color: #fff; font-family: inherit; font-size: 0.75rem; }
+
         .table-wrapper { width: 100%; overflow-x: auto; border: 1px solid #1f2937; border-radius: 0.5rem; background-color: #111827; }
-
-        table { width: 100%; border-collapse: collapse; text-align: right; font-size: 0.75rem; }
-
-        th {
-            background-color: #1f2937; color: #38bdf8; padding: 0.3rem 0.4rem; font-weight: 700;
-            border-bottom: 1px solid #374151; white-space: normal; line-height: 1.2;
-            vertical-align: middle; text-align: center; font-size: 0.7rem;
-        }
-        td { padding: 0.3rem 0.4rem; border-bottom: 1px solid #111827; color: #d1d5db; vertical-align: middle; text-align: center; line-height: 1.3; }
+        table { width: 100%; border-collapse: collapse; text-align: right; font-size: 0.78rem; }
+        th { background-color: #1f2937; color: #38bdf8; padding: 0.4rem; font-weight: 700; border-bottom: 1px solid #374151; text-align: center; font-size: 0.72rem; }
+        td { padding: 0.4rem; border-bottom: 1px solid #111827; text-align: center; }
         tr:nth-child(even) { background-color: #0b0f19; }
         tr:hover td { background-color: #1a2332; }
-
-        .badge { font-size: 0.63rem; padding: 0.15rem 0.4rem; border-radius: 0.25rem; font-weight: 500; background: #1f2937; color: #22d3ee; border: 1px solid #374151; }
-        .badge-vision { background: #312e81; color: #a5b4fc; }
-        .badge-text { background: #1e293b; color: #94a3b8; }
-        .badge-source { background: #0c4a6e; color: #7dd3fc; }
-        .badge-access-free { background: #064e3b; color: #6ee7b7; }
-        .badge-access-paid { background: #451a03; color: #fbbf24; }
-
-        .model-name { font-weight: 700; color: #f9fafb; display: block; font-size: 0.76rem; text-align: right; }
-        .model-desc { color: #6b7280; font-size: 0.63rem; text-align: right; margin-top: 0.15rem; line-height: 1.4; }
-        .model-id-container { display: flex; align-items: center; justify-content: flex-start; gap: 0.3rem; font-size: 0.63rem; color: #38bdf8; font-family: monospace; direction: ltr; margin-top: 0.2rem; }
-
-        .copy-btn { background: none; border: none; color: #9ca3af; cursor: pointer; font-size: 0.65rem; padding: 0.1rem 0.2rem; border-radius: 0.2rem; transition: 0.1s; }
-        .copy-btn:hover { color: #22d3ee; background: #1f2937; }
-        .copy-success { color: #34d399 !important; font-size: 0.6rem; }
-
-        .pagination { display: flex; justify-content: center; align-items: center; gap: 0.75rem; margin: 0.75rem 0; }
-        .loading-box { text-align: center; padding: 2rem 0; }
+        .model-id { font-family: monospace; color: #38bdf8; direction: ltr; display: inline-block; }
+        .badge { font-size: 0.65rem; padding: 0.15rem 0.4rem; border-radius: 0.25rem; background: #064e3b; color: #6ee7b7; border: 1px solid #065f46; }
+        .badge-src { background: #0c4a6e; color: #7dd3fc; border-color: #075985; }
+        .copy-btn { background: none; border: none; color: #9ca3af; cursor: pointer; font-size: 0.7rem; padding: 0.1rem 0.3rem; }
+        .copy-btn:hover { color: #22d3ee; }
+        .loading-box { text-align: center; padding: 2rem 0; color: #9ca3af; font-size: 0.75rem; }
         .hidden { display: none !important; }
+        .pagination { display: flex; justify-content: center; gap: 0.75rem; align-items: center; margin: 0.75rem 0; font-size: 0.75rem; color: #9ca3af; }
     </style>
 </head>
 <body>
-
     <div class="container">
         <header>
-            <h1><i class="fa-solid fa-bolt"></i> مدل‌های رایگان هوش مصنوعی (زنده)</h1>
-            <div class="header-actions">
-                <button onclick="toggleKeysPanel()" class="btn btn-secondary"><i class="fa-solid fa-key"></i> کلیدهای API</button>
+            <h1>مدل‌های رایگان — Groq / OpenRouter / UnoRouter / Google AI / Cloudflare / Together / anymodel.org</h1>
+            <div>
+                <button onclick="toggleKeysPanel()" class="btn btn-secondary"><i class="fa-solid fa-key"></i> کلیدها</button>
                 <button onclick="fetchAllModels()" class="btn"><i class="fa-solid fa-rotate"></i> بروزرسانی</button>
             </div>
         </header>
 
-        <div class="notice">
-            <b>منابع بدون کلید (همیشه فعال):</b>
-            <code>openrouter.ai/api/v1/models</code> و
-            <code>router.huggingface.co/v1/models</code> (این یکی خودش Groq، Together، Fireworks، Novita، Cerebras و چند پروایدر دیگر را با
-            قیمت و لتنسی واقعیِ لحظه‌ای پوشش می‌دهد). فیلتر رایگان روی هر دو یکسان است: قیمت ورودی/خروجی دقیقاً صفر.
-            <br><br>
-            <b>منابعی که کلید شخصی می‌خواهند:</b> UnoRouter، Google AI Studio، Cloudflare Workers AI — از دکمه‌ی «کلیدهای API» وارد کنید.
-            هیچ کلیدی روی سرور ذخیره نمی‌شود؛ فقط در مرورگر خودتان (localStorage) می‌ماند.
-            این صفحه هر <b>۵ دقیقه</b> خودش را خودکار بروزرسانی می‌کند.
-            <br><br>
-            <b style="color:#fbbf24;">توجه:</b> «GitHub Models» چون در ۳۰ ژوئیه ۲۰۲۶ توسط گیت‌هاب تعطیل شد، از پروژه حذف شده است.
+        <div class="rule">
+            <b>قانون این جدول (فقط همین):</b> از هر یک از ۷ پروایدر بالا، جداگانه، فقط مدل‌هایی می‌آیند که
+            <b>۱)</b> در شناسه‌شان تگ <code>:free</code> دارند یا قیمتشان دقیقاً 0.0000 است، <b>و ۲)</b> طول کانتکست‌شان بالای
+            <b>۱۰۰٬۰۰۰ توکن</b> است. هر دو شرط با هم لازم است. OpenRouter بدون کلید کار می‌کند؛ بقیه نیاز به کلید شخصی شما دارند (دکمه‌ی «کلیدها»).
         </div>
 
         <div id="keysPanel" class="keys-panel">
-            <strong style="font-size: 0.8rem;">کلیدهای API شخصی شما (اختیاری — فقط در مرورگر شما ذخیره می‌شود)</strong>
             <div class="keys-grid">
-                <div class="key-field">
-                    <label><span class="paid-dot"></span> UnoRouter — چند مدل با تگ :free</label>
-                    <input type="password" id="key_unorouter" placeholder="API Key">
-                </div>
-                <div class="key-field">
-                    <label><span class="free-dot"></span> Google AI Studio — رایگان محدود</label>
-                    <input type="password" id="key_google" placeholder="AIza...">
-                </div>
-                <div class="key-field">
-                    <label><span class="free-dot"></span> Cloudflare — Account ID</label>
-                    <input type="text" id="key_cloudflareAccountId" placeholder="Account ID">
-                </div>
-                <div class="key-field">
-                    <label><span class="free-dot"></span> Cloudflare — API Token (رایگان با سهمیه)</label>
-                    <input type="password" id="key_cloudflareToken" placeholder="API Token">
-                </div>
+                <div class="key-field"><label>Groq</label><input type="password" id="key_groq" placeholder="API Key"></div>
+                <div class="key-field"><label>UnoRouter</label><input type="password" id="key_unorouter" placeholder="API Key"></div>
+                <div class="key-field"><label>Google AI</label><input type="password" id="key_google" placeholder="AIza..."></div>
+                <div class="key-field"><label>Cloudflare — Account ID</label><input type="text" id="key_cloudflareAccountId" placeholder="Account ID"></div>
+                <div class="key-field"><label>Cloudflare — API Token</label><input type="password" id="key_cloudflareToken" placeholder="API Token"></div>
+                <div class="key-field"><label>Together AI</label><input type="password" id="key_together" placeholder="API Key"></div>
+                <div class="key-field"><label>anymodel.org</label><input type="password" id="key_anymodel" placeholder="API Key"></div>
             </div>
             <div class="keys-footer">
-                <button onclick="saveKeysAndFetch()" class="btn"><i class="fa-solid fa-floppy-disk"></i> ذخیره و دریافت زنده</button>
-                <button onclick="clearKeys()" class="btn btn-secondary"><i class="fa-solid fa-trash"></i> پاک کردن همه‌ی کلیدها</button>
-                <span class="keys-note">Groq، Together، Fireworks، Novita و Cerebras نیازی به کلید ندارند — از طریق HF Router خودکار پوشش داده می‌شوند.</span>
+                <button onclick="saveKeysAndFetch()" class="btn"><i class="fa-solid fa-floppy-disk"></i> ذخیره و دریافت</button>
+                <button onclick="clearKeys()" class="btn btn-secondary"><i class="fa-solid fa-trash"></i> پاک کردن کلیدها</button>
             </div>
         </div>
 
@@ -131,27 +88,22 @@
         <div class="filters">
             <input type="text" id="searchInput" oninput="resetAndFilter()" placeholder="جستجوی مدل یا شناسه..." class="input-box">
             <select id="providerFilter" onchange="resetAndFilter()" class="select-box">
-                <option value="all">همه‌ی منابع</option>
+                <option value="all">همه‌ی پروایدرها</option>
             </select>
         </div>
 
-        <div id="loading" class="loading-box">
-            <i class="fa-solid fa-spinner fa-spin fa-lg" style="color: #22d3ee;"></i>
-            <p style="color: #9ca3af; margin-top: 0.3rem; font-size: 0.75rem;">در حال دریافت زنده از پروایدرها...</p>
-        </div>
+        <div id="loading" class="loading-box"><i class="fa-solid fa-spinner fa-spin"></i> در حال دریافت زنده...</div>
 
         <div id="tableContainer" class="table-wrapper hidden">
             <table>
                 <thead>
                     <tr>
-                        <th style="width: 4%;">ردیف</th>
-                        <th style="width: 21%; text-align: right;">نام / شناسه مدل</th>
-                        <th>منبع (Source)</th>
-                        <th>نوع دسترسی</th>
-                        <th>حجم متن</th>
-                        <th>نوع ورودی</th>
-                        <th>لتنسی واقعی</th>
-                        <th style="width: 15%;">API Endpoint</th>
+                        <th style="width:4%">ردیف</th>
+                        <th style="width:32%; text-align:right;">شناسه / نام مدل</th>
+                        <th>پروایدر</th>
+                        <th>کانتکست</th>
+                        <th>دلیل رایگان بودن</th>
+                        <th style="width:18%">Endpoint</th>
                     </tr>
                 </thead>
                 <tbody id="tableBody"></tbody>
@@ -160,206 +112,138 @@
 
         <div id="pagination" class="pagination hidden">
             <button id="prevBtn" onclick="changePage(-1)" class="btn">قبلی</button>
-            <span id="pageInfo" style="font-size: 0.75rem; color: #9ca3af;">صفحه ۱</span>
+            <span id="pageInfo">صفحه ۱</span>
             <button id="nextBtn" onclick="changePage(1)" class="btn">بعدی</button>
         </div>
     </div>
 
     <script>
-        let allModelsData = [];
+        let allData = [];
         let filteredData = [];
         let currentPage = 1;
-        const pageSize = 40;
+        const pageSize = 50;
         const AUTO_REFRESH_MS = 5 * 60 * 1000;
         let refreshTimer = null;
-        const KEY_FIELDS = ['unorouter', 'google', 'cloudflareAccountId', 'cloudflareToken'];
-        const STORAGE_KEY = 'freeAiModelsDashboard.apiKeys';
+        const KEY_FIELDS = ['groq', 'unorouter', 'google', 'cloudflareAccountId', 'cloudflareToken', 'together', 'anymodel'];
+        const STORAGE_KEY = 'freeAiModelsDashboard.apiKeys.v2';
 
         function toggleKeysPanel() { document.getElementById('keysPanel').classList.toggle('open'); }
 
         function loadKeysIntoInputs() {
             try {
                 const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-                KEY_FIELDS.forEach((f) => {
-                    const el = document.getElementById('key_' + f);
-                    if (el && saved[f]) el.value = saved[f];
-                });
+                KEY_FIELDS.forEach((f) => { const el = document.getElementById('key_' + f); if (el && saved[f]) el.value = saved[f]; });
             } catch {}
         }
-
-        function collectKeysFromInputs() {
+        function collectKeys() {
             const keys = {};
-            KEY_FIELDS.forEach((f) => {
-                const el = document.getElementById('key_' + f);
-                if (el && el.value.trim()) keys[f] = el.value.trim();
-            });
+            KEY_FIELDS.forEach((f) => { const el = document.getElementById('key_' + f); if (el && el.value.trim()) keys[f] = el.value.trim(); });
             return keys;
         }
+        function saveKeysAndFetch() { localStorage.setItem(STORAGE_KEY, JSON.stringify(collectKeys())); fetchAllModels(); }
+        function clearKeys() { localStorage.removeItem(STORAGE_KEY); KEY_FIELDS.forEach((f) => { const el = document.getElementById('key_' + f); if (el) el.value = ''; }); fetchAllModels(); }
 
-        function saveKeysAndFetch() {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(collectKeysFromInputs()));
-            fetchAllModels();
-        }
-
-        function clearKeys() {
-            localStorage.removeItem(STORAGE_KEY);
-            KEY_FIELDS.forEach((f) => { const el = document.getElementById('key_' + f); if (el) el.value = ''; });
-            fetchAllModels();
-        }
-
-        function copyToClipboard(text, btnElement) {
+        function copyToClipboard(text, btn) {
             navigator.clipboard.writeText(text).then(() => {
-                const originalHTML = btnElement.innerHTML;
-                btnElement.innerHTML = '<i class="fa-solid fa-check copy-success"></i>';
-                setTimeout(() => { btnElement.innerHTML = originalHTML; }, 1200);
+                const orig = btn.innerHTML;
+                btn.innerHTML = '<i class="fa-solid fa-check" style="color:#34d399;"></i>';
+                setTimeout(() => { btn.innerHTML = orig; }, 1000);
             });
         }
 
-        function renderStatusBar(meta, error) {
+        function renderStatusBar(result, error) {
             const bar = document.getElementById('statusBar');
-            if (error) {
-                bar.innerHTML = `<span class="status-chip status-error"><i class="fa-solid fa-triangle-exclamation"></i> خطا در دریافت: ${error}</span>`;
-                return;
-            }
-            const fetchedAt = new Date(meta.fetchedAt).toLocaleTimeString('fa-IR');
-            let html = `
-                <span class="status-chip"><i class="fa-solid fa-clock"></i> آخرین بروزرسانی: <b>${fetchedAt}</b></span>
-                <span class="status-chip"><i class="fa-solid fa-gauge-high"></i> زمان پاسخ OpenRouter: <b>${meta.apiLatencyMs} ms</b></span>
-                <span class="status-chip"><i class="fa-solid fa-gift"></i> کل ردیف‌های جدول: <b>${meta.freeModelsCount}</b></span>
-                <span class="status-chip"><i class="fa-solid fa-hourglass-half"></i> بروزرسانی خودکار بعدی تا ۵ دقیقه دیگر</span>
-            `;
-            if (meta.providerErrors && meta.providerErrors.length) {
-                meta.providerErrors.forEach((err) => { html += `<span class="status-chip status-warn"><i class="fa-solid fa-circle-exclamation"></i> ${err}</span>`; });
-            }
+            if (error) { bar.innerHTML = `<span class="status-chip status-warn">خطا: ${error}</span>`; return; }
+            let html = `<span class="status-chip">آخرین بروزرسانی: <b>${new Date(result.fetchedAt).toLocaleTimeString('fa-IR')}</b></span>`;
+            html += `<span class="status-chip">تعداد کل: <b>${result.count}</b></span>`;
+            html += `<span class="status-chip">بروزرسانی خودکار بعدی: ۵ دقیقه دیگر</span>`;
+            (result.providerErrors || []).forEach((e) => { html += `<span class="status-chip status-warn">${e}</span>`; });
             bar.innerHTML = html;
         }
 
         function populateProviderFilter() {
-            const select = document.getElementById('providerFilter');
-            const current = select.value;
-            const sources = [...new Set(allModelsData.map(m => m.sourceProvider))].sort();
-            select.innerHTML = '<option value="all">همه‌ی منابع (' + sources.length + ')</option>' +
-                sources.map(p => `<option value="${p}">${p}</option>`).join('');
-            if (sources.includes(current)) select.value = current;
+            const sel = document.getElementById('providerFilter');
+            const current = sel.value;
+            const sources = [...new Set(allData.map(m => m.sourceProvider))].sort();
+            sel.innerHTML = '<option value="all">همه‌ی پروایدرها (' + sources.length + ')</option>' + sources.map(s => `<option value="${s}">${s}</option>`).join('');
+            if (sources.includes(current)) sel.value = current;
         }
 
         async function fetchAllModels() {
             document.getElementById('loading').classList.remove('hidden');
             document.getElementById('tableContainer').classList.add('hidden');
             document.getElementById('pagination').classList.add('hidden');
-
-            const keys = collectKeysFromInputs();
-
+            const keys = collectKeys();
             try {
-                const response = await fetch('/api/models', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ keys })
-                });
-                const result = await response.json();
-
-                if (result.success && result.data) {
-                    allModelsData = result.data;
+                const res = await fetch('/api/models', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ keys }) });
+                const result = await res.json();
+                if (result.success) {
+                    allData = result.data;
                     renderStatusBar(result, null);
                     populateProviderFilter();
                 } else {
-                    renderStatusBar(null, result.error || 'پاسخ نامعتبر از سرور');
+                    renderStatusBar(null, result.error || 'خطای نامشخص');
                 }
-            } catch (error) {
-                renderStatusBar(null, error.message);
+            } catch (e) {
+                renderStatusBar(null, e.message);
             }
-
             document.getElementById('loading').classList.add('hidden');
             document.getElementById('tableContainer').classList.remove('hidden');
             resetAndFilter();
-
             if (refreshTimer) clearTimeout(refreshTimer);
             refreshTimer = setTimeout(fetchAllModels, AUTO_REFRESH_MS);
         }
 
         function resetAndFilter() {
             currentPage = 1;
-            const search = document.getElementById('searchInput').value.toLowerCase();
-            const source = document.getElementById('providerFilter').value;
-
-            filteredData = allModelsData.filter(m => {
-                const matchSearch = m.name.toLowerCase().includes(search) || m.id.toLowerCase().includes(search);
-                const matchSource = source === 'all' || m.sourceProvider === source;
-                return matchSearch && matchSource;
+            const q = document.getElementById('searchInput').value.toLowerCase();
+            const src = document.getElementById('providerFilter').value;
+            filteredData = allData.filter(m => {
+                const matchQ = m.name.toLowerCase().includes(q) || m.id.toLowerCase().includes(q);
+                const matchSrc = src === 'all' || m.sourceProvider === src;
+                return matchQ && matchSrc;
             });
-
             renderTable();
         }
 
         function renderTable() {
             const tbody = document.getElementById('tableBody');
-            const pagination = document.getElementById('pagination');
-            tbody.innerHTML = '';
-
+            const pag = document.getElementById('pagination');
             if (filteredData.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #6b7280; padding: 1.5rem;">هیچ مدلی یافت نشد.</td></tr>';
-                pagination.classList.add('hidden');
+                tbody.innerHTML = '<tr><td colspan="6" style="padding:1.5rem;color:#6b7280;">هیچ مدلی با این معیار پیدا نشد.</td></tr>';
+                pag.classList.add('hidden');
                 return;
             }
-
             const start = (currentPage - 1) * pageSize;
-            const end = start + pageSize;
-            const pageItems = filteredData.slice(start, end);
-
-            let html = '';
-            pageItems.forEach((m, index) => {
-                const rowNumber = start + index + 1;
-                const isPaidLooking = m.accessType && (m.accessType.includes('پولی') || m.accessType.includes('اعتباری'));
-                const latencyDisplay = m.latencyMs ? `${m.latencyMs} ms` : '—';
-                html += `
-                    <tr>
-                        <td style="color: #9ca3af; font-family: monospace;">${rowNumber}</td>
-                        <td>
-                            <span class="model-name">${m.name}</span>
-                            <div class="model-desc">${m.description || ''}</div>
-                            <div class="model-id-container">
-                                <span>${m.id}</span>
-                                <button class="copy-btn" onclick="copyToClipboard('${m.id}', this)" title="کپی شناسه">
-                                    <i class="fa-regular fa-copy"></i>
-                                </button>
-                            </div>
-                        </td>
-                        <td><span class="badge badge-source">${m.sourceProvider}</span></td>
-                        <td><span class="badge ${isPaidLooking ? 'badge-access-paid' : 'badge-access-free'}">${m.accessType}</span></td>
-                        <td><strong style="color: #e5e7eb;">${m.contextLabel}</strong></td>
-                        <td><span class="${m.isVision ? 'badge-vision' : 'badge-text'} badge">${m.isVision ? 'متن + تصویر 👁️' : 'فقط متن 📝'}</span></td>
-                        <td style="font-family: monospace; color: ${m.latencyMs ? '#e5e7eb' : '#4b5563'};">${latencyDisplay}</td>
-                        <td>
-                            <div class="model-id-container" style="justify-content: center;">
-                                <span style="max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${m.endpoint}">${m.endpoint}</span>
-                                <button class="copy-btn" onclick="copyToClipboard('${m.endpoint}', this)" title="کپی Endpoint">
-                                    <i class="fa-regular fa-copy"></i>
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
-                `;
-            });
-
-            tbody.innerHTML = html;
-
+            const items = filteredData.slice(start, start + pageSize);
+            tbody.innerHTML = items.map((m, i) => `
+                <tr>
+                    <td style="font-family:monospace;color:#9ca3af;">${start + i + 1}</td>
+                    <td style="text-align:right;">
+                        <div>${m.name}</div>
+                        <span class="model-id">${m.id}</span>
+                        <button class="copy-btn" onclick="copyToClipboard('${m.id}', this)"><i class="fa-regular fa-copy"></i></button>
+                    </td>
+                    <td><span class="badge badge-src">${m.sourceProvider}</span></td>
+                    <td>${m.contextLength ? Math.round(m.contextLength/1000) + 'k' : '—'}</td>
+                    <td><span class="badge">${m.freeReason}</span></td>
+                    <td>
+                        <span class="model-id" style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;" title="${m.endpoint}">${m.endpoint}</span>
+                        <button class="copy-btn" onclick="copyToClipboard('${m.endpoint}', this)"><i class="fa-regular fa-copy"></i></button>
+                    </td>
+                </tr>
+            `).join('');
             const maxPage = Math.ceil(filteredData.length / pageSize);
             if (maxPage > 1) {
-                pagination.classList.remove('hidden');
-                document.getElementById('pageInfo').innerText = `صفحه ${currentPage} از ${maxPage} (کل ردیف‌ها: ${filteredData.length})`;
+                pag.classList.remove('hidden');
+                document.getElementById('pageInfo').innerText = `صفحه ${currentPage} از ${maxPage} (${filteredData.length} مدل)`;
                 document.getElementById('prevBtn').disabled = currentPage === 1;
                 document.getElementById('nextBtn').disabled = currentPage === maxPage;
-            } else {
-                pagination.classList.add('hidden');
-            }
+            } else { pag.classList.add('hidden'); }
         }
+        function changePage(d) { currentPage += d; renderTable(); }
 
-        function changePage(dir) { currentPage += dir; renderTable(); }
-
-        document.addEventListener('DOMContentLoaded', () => {
-            loadKeysIntoInputs();
-            fetchAllModels();
-        });
+        document.addEventListener('DOMContentLoaded', () => { loadKeysIntoInputs(); fetchAllModels(); });
     </script>
 </body>
 </html>
