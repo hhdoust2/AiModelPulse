@@ -17,21 +17,36 @@ function isFreeId(id) {
     return /:free\b/i.test(id || '');
 }
 
+// یک مدل واقعاً رایگان است اگر هر فیلد قیمتیِ *معتبر* آن دقیقاً صفر باشد.
+// نکته‌ی مهم: OpenRouter برای فیلدهایی که مدل ازشان پشتیبانی نمی‌کند مقدار
+// سنتینل «-1» می‌گذارد (یعنی «غیرقابل‌اجرا»، نه «قیمت منفی») — این فیلدها
+// باید نادیده گرفته شوند، نه اینکه باعث رد شدن مدل شوند.
 function isZeroPricing(pricing) {
     if (!pricing || typeof pricing !== 'object') return false;
     const keys = Object.keys(pricing);
     if (keys.length === 0) return false;
-    return keys.every((k) => {
+    let hasValidPriceField = false;
+    for (const k of keys) {
         const num = parseFloat(pricing[k]);
-        if (Number.isNaN(num)) return true;
-        return num === 0;
-    });
+        if (Number.isNaN(num)) continue;   // فیلد غیرعددی، نادیده گرفته می‌شود
+        if (num < 0) continue;             // سنتینل «غیرقابل‌اجرا» (مثل -1)، نادیده گرفته می‌شود
+        hasValidPriceField = true;
+        if (num !== 0) return false;       // هر فیلد قیمتیِ واقعی و غیرصفر → مدل پولی است
+    }
+    return hasValidPriceField;
 }
 
+// وقتی داده‌ی قیمت واقعی در دسترس است، همان ملاک اصلی است (نه تگ :free) —
+// چون تگ به‌تنهایی می‌تواند نسبت به قیمت واقعی نادرست/قدیمی باشد.
+// فقط وقتی هیچ داده‌ی قیمتی موجود نیست (مثلاً بعضی پروایدرها اصلاً pricing
+// برنمی‌گردانند)، به تگ :free در شناسه رجوع می‌شود.
 function qualifies(id, pricing, contextLength) {
-    const free = isFreeId(id) || isZeroPricing(pricing);
     const bigContext = typeof contextLength === 'number' && contextLength > MIN_CONTEXT;
-    return free && bigContext;
+    if (!bigContext) return false;
+
+    const hasPricingInfo = pricing && typeof pricing === 'object' && Object.keys(pricing).length > 0;
+    if (hasPricingInfo) return isZeroPricing(pricing);
+    return isFreeId(id);
 }
 
 function row(fields) {
@@ -134,12 +149,7 @@ async function fetchTogether(key) {
     const j = await r.json();
     const all = Array.isArray(j) ? j : (j.data || []);
     return all
-        .filter((m) => {
-            const p = m.pricing || {};
-            const zeroPrice = parseFloat(p.input) === 0 && parseFloat(p.output) === 0;
-            const free = isFreeId(m.id) || isFreeId(m.display_name || '') || zeroPrice;
-            return free && (m.context_length || 0) > MIN_CONTEXT;
-        })
+        .filter((m) => qualifies(m.id, m.pricing, m.context_length))
         .map((m) => row({
             id: m.id, name: m.display_name || m.id, sourceProvider: 'Together AI',
             contextLength: m.context_length,
