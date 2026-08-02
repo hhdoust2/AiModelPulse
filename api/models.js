@@ -1,170 +1,167 @@
 // api/models.js — Vercel Serverless Function
 //
-// منابع بدون کلید (همیشه فعال):
-//   ۱. OpenRouter          → https://openrouter.ai/api/v1/models
-//   ۲. HF Router (چندپروایدری، شامل Groq/Together/Fireworks/Novita/Cerebras/...)
-//                           → https://router.huggingface.co/v1/models
-//      این endpoint برای هر مدل، آرایه‌ای از پروایدرها با قیمت واقعی،
-//      لتنسی واقعی (first_token_latency_ms) و throughput واقعی برمی‌گردونه.
-//      نسخه‌ی قبلی این کد از huggingface.co/api/models با sort=trending
-//      استفاده می‌کرد که پارامتر معتبری نیست و ۴۰۰ برمی‌گردوند — همینجا حذف شد.
+// فقط ۷ پروایدر، هرکدام جداگانه: Groq, OpenRouter, UnoRouter, Google AI,
+// Cloudflare, Together, anymodel.org
 //
-// منابعی که به کلید کاربر نیاز دارند (اختیاری، از پنل «کلیدهای API»):
-//   ۳. UnoRouter            → https://api.unorouter.com/v1/models  (Authorization: Bearer)
-//   ۴. Google AI Studio     → https://generativelanguage.googleapis.com/v1beta/models?key=
-//   ۵. Cloudflare Workers AI→ .../accounts/{id}/ai/models/search    (Authorization: Bearer + Account ID)
+// معیار «رایگان» (همان‌طور که خواسته شد):
+//   شرط ۱: شناسه‌ی مدل تگ ":free" دارد  یا  همه‌ی زیرفیلدهای pricing دقیقاً 0 هستند
+//   شرط ۲: طول کانتکست (context length) بالای ۱۰۰٬۰۰۰ توکن باشد
+//   هر دو شرط باید همزمان برقرار باشند.
 //
-// نکته‌ی «GitHub Models»: این سرویس در ۳۰ ژوئیه ۲۰۲۶ توسط گیت‌هاب کاملاً تعطیل شد، به همین دلیل در این پروژه حذف شده است.
-// نکته‌ی SiliconFlow/Together/Fireworks/Novita/Groq با کلید مجزا: چون HF Router همه‌ی این‌ها را
-// بدون هیچ کلیدی و با داده‌ی دقیق‌تر (قیمت/لتنسی واقعی) پوشش می‌دهد، فیلدهای کلید جداگانه‌شان حذف شد.
+// OpenRouter بدون کلید کار می‌کند. بقیه (Groq, UnoRouter, Google AI,
+// Cloudflare, Together, anymodel.org) به کلید شخصی کاربر نیاز دارند.
 
-function baseItem(fields) {
-    return Object.assign({
-        id: '', name: '', originProvider: '', sourceProvider: '', description: '',
-        contextLabel: 'نامشخص', contextLength: 0, modality: 'نامشخص', isVision: false,
-        reasoning: false, createdDate: null, knowledgeCutoff: null, endpoint: '',
-        accessType: 'نامشخص', latencyMs: null, throughput: null
-    }, fields);
+const MIN_CONTEXT = 100000;
+
+function isFreeId(id) {
+    return /:free\b/i.test(id || '');
 }
 
-function contextLabelOf(tokens) {
-    if (!tokens || tokens <= 0) return 'نامشخص';
-    return tokens >= 1000 ? Math.round(tokens / 1000) + 'k' : String(tokens);
+function isZeroPricing(pricing) {
+    if (!pricing || typeof pricing !== 'object') return false;
+    const keys = Object.keys(pricing);
+    if (keys.length === 0) return false;
+    return keys.every((k) => {
+        const num = parseFloat(pricing[k]);
+        if (Number.isNaN(num)) return true;
+        return num === 0;
+    });
 }
 
-// ---------- ۱. OpenRouter (بدون کلید) ----------
+function qualifies(id, pricing, contextLength) {
+    const free = isFreeId(id) || isZeroPricing(pricing);
+    const bigContext = typeof contextLength === 'number' && contextLength > MIN_CONTEXT;
+    return free && bigContext;
+}
+
+function row(fields) {
+    return Object.assign({ id: '', name: '', sourceProvider: '', contextLength: 0, freeReason: '', endpoint: '' }, fields);
+}
+
+// ---------- 1. OpenRouter (بدون کلید) ----------
 async function fetchOpenRouter() {
-    const start = Date.now();
-    const upstream = await fetch('https://openrouter.ai/api/v1/models', { headers: { Accept: 'application/json' } });
-    const apiLatencyMs = Date.now() - start;
-    if (!upstream.ok) throw new Error(`OpenRouter با کد ${upstream.status} پاسخ داد`);
-    const json = await upstream.json();
-    const all = Array.isArray(json.data) ? json.data : [];
-    // «رایگان» یعنی هیچ زیرفیلدی از pricing (prompt, completion, image, audio,
-    // request, web_search, internal_reasoning, input_cache_*, ...) هزینه‌ای نداشته باشد.
-    // نسخه‌ی قبلی فقط prompt/completion را چک می‌کرد؛ در نتیجه مدل‌هایی مثل Lyria
-    // (تولید موسیقی) که قیمتشان در فیلدهای دیگری مثل image/audio است، اشتباهاً
-    // رایگان به‌حساب می‌آمدند.
-    const free = all.filter((m) => {
-        const p = m.pricing;
-        if (!p || typeof p !== 'object') return false;
-        const keys = Object.keys(p);
-        if (keys.length === 0) return false;
-        return keys.every((key) => {
-            const num = parseFloat(p[key]);
-            if (Number.isNaN(num)) return true; // فیلد غیرعددی، نادیده گرفته می‌شود
-            return num === 0;
-        });
-    });
-    const data = free.map((m) => baseItem({
-        id: m.id,
-        name: m.name || m.id,
-        originProvider: (m.id.split('/')[0] || 'نامشخص').trim(),
-        sourceProvider: 'OpenRouter',
-        description: (m.description || '').split('\n')[0].slice(0, 180),
-        contextLabel: contextLabelOf(m.context_length),
-        contextLength: m.context_length || 0,
-        modality: m.architecture?.modality || 'نامشخص',
-        isVision: (m.architecture?.input_modalities || []).includes('image'),
-        reasoning: !!(m.reasoning && (m.reasoning.mandatory || m.reasoning.default_enabled)),
-        createdDate: m.created ? new Date(m.created * 1000).toISOString().slice(0, 10) : null,
-        knowledgeCutoff: m.knowledge_cutoff || null,
-        endpoint: 'https://openrouter.ai/api/v1/chat/completions',
-        accessType: 'رایگان (بدون کلید)'
-    }));
-    return { data, meta: { totalModelsScanned: all.length, apiLatencyMs } };
-}
-
-// ---------- ۲. HF Router — چندپروایدری، بدون کلید، قیمت/لتنسی واقعی ----------
-async function fetchHFRouter() {
-    const r = await fetch('https://router.huggingface.co/v1/models', { headers: { Accept: 'application/json' } });
-    if (!r.ok) throw new Error(`Hugging Face Router: کد ${r.status}`);
+    const r = await fetch('https://openrouter.ai/api/v1/models', { headers: { Accept: 'application/json' } });
+    if (!r.ok) throw new Error(`OpenRouter: کد ${r.status}`);
     const j = await r.json();
-    const models = Array.isArray(j.data) ? j.data : [];
-    const rows = [];
-
-    models.forEach((m) => {
-        const isVision = (m.architecture?.input_modalities || []).includes('image');
-        (m.providers || []).forEach((p) => {
-            if (p.status !== 'live') return;
-            const price = p.pricing || null;
-            const isFree = p.is_free === true || (price && parseFloat(price.input) === 0 && parseFloat(price.output) === 0);
-            if (!isFree) return; // فقط پروایدرهایی که واقعاً رایگانند نگه داشته می‌شوند
-
-            rows.push(baseItem({
-                id: m.id,
-                name: m.id,
-                originProvider: m.owned_by || (m.id.split('/')[0] || 'نامشخص'),
-                sourceProvider: `Hugging Face → ${p.provider}`,
-                contextLabel: contextLabelOf(p.context_length),
-                contextLength: p.context_length || 0,
-                modality: (m.architecture?.input_modalities || []).join('+') || 'نامشخص',
-                isVision,
-                createdDate: m.created ? new Date(m.created * 1000).toISOString().slice(0, 10) : null,
-                endpoint: 'https://router.huggingface.co/v1/chat/completions',
-                accessType: 'رایگان (پروموشن موقت پروایدر، بدون کلید برای مشاهده)',
-                latencyMs: p.first_token_latency_ms ? Math.round(p.first_token_latency_ms) : null,
-                throughput: p.throughput ? Math.round(p.throughput * 10) / 10 : null
-            }));
-        });
-    });
-
-    return { data: rows, meta: { totalModelsScanned: models.length } };
+    const all = Array.isArray(j.data) ? j.data : [];
+    return all
+        .filter((m) => qualifies(m.id, m.pricing, m.context_length))
+        .map((m) => row({
+            id: m.id, name: m.name || m.id, sourceProvider: 'OpenRouter',
+            contextLength: m.context_length,
+            freeReason: isFreeId(m.id) ? 'تگ :free' : 'قیمت 0.0000',
+            endpoint: 'https://openrouter.ai/api/v1/chat/completions'
+        }));
 }
 
-// ---------- ۳. UnoRouter (نیاز به کلید شخصی) ----------
+// ---------- 2. Groq (نیاز به کلید) ----------
+// اندپوینت لیست مدل‌های Groq فیلد pricing برنمی‌گرداند (کل سرویس Groq فعلاً
+// رایگان است)؛ در نتیجه شرط «رایگان» با نبود فیلد pricing (=۰ درنظرگرفته
+// می‌شود) و شرط کانتکست با context_window بررسی می‌شود.
+async function fetchGroq(key) {
+    const r = await fetch('https://api.groq.com/openai/v1/models', { headers: { Authorization: `Bearer ${key}` } });
+    if (!r.ok) throw new Error(`Groq: کد ${r.status} (کلید را بررسی کنید)`);
+    const j = await r.json();
+    const all = j.data || [];
+    return all
+        .filter((m) => (m.context_window || 0) > MIN_CONTEXT)
+        .map((m) => row({
+            id: m.id, name: m.id, sourceProvider: 'Groq',
+            contextLength: m.context_window,
+            freeReason: 'سرویس Groq فعلاً رایگان',
+            endpoint: 'https://api.groq.com/openai/v1/chat/completions'
+        }));
+}
+
+// ---------- 3. UnoRouter (نیاز به کلید) ----------
 async function fetchUnoRouter(key) {
     const r = await fetch('https://api.unorouter.com/v1/models', { headers: { Authorization: `Bearer ${key}`, Accept: 'application/json' } });
     if (!r.ok) throw new Error(`UnoRouter: کد ${r.status} (کلید را بررسی کنید)`);
     const j = await r.json();
-    const arr = Array.isArray(j.data) ? j.data : (Array.isArray(j) ? j : []);
-    return arr.map((m) => {
-        const id = m.id || '';
-        const looksFree = id.includes(':free');
-        return baseItem({
-            id, name: m.name || id,
-            originProvider: (id.split('/')[0] || 'UnoRouter'),
-            sourceProvider: 'UnoRouter',
-            contextLabel: contextLabelOf(m.context_length),
-            contextLength: m.context_length || 0,
-            createdDate: m.created ? new Date(m.created * 1000).toISOString().slice(0, 10) : null,
-            endpoint: 'https://api.unorouter.com/v1/chat/completions',
-            accessType: looksFree ? 'رایگان (تگ :free در شناسه)' : 'اعتباری/پولی (با کلید شخصی شما)'
-        });
-    });
+    const all = Array.isArray(j.data) ? j.data : (Array.isArray(j) ? j : []);
+    return all
+        .filter((m) => qualifies(m.id, m.pricing, m.context_length))
+        .map((m) => row({
+            id: m.id, name: m.name || m.id, sourceProvider: 'UnoRouter',
+            contextLength: m.context_length,
+            freeReason: isFreeId(m.id) ? 'تگ :free' : 'قیمت 0.0000',
+            endpoint: 'https://api.unorouter.com/v1/chat/completions'
+        }));
 }
 
-// ---------- ۴. Google AI Studio (نیاز به کلید شخصی) ----------
+// ---------- 4. Google AI Studio (نیاز به کلید) ----------
+// این اندپوینت فیلد pricing ندارد (رایگان‌بودن بر اساس لایه‌ی رایگان
+// حساب کاربر تعیین می‌شود، نه در پاسخ API)؛ فقط شرط کانتکست چک می‌شود.
 async function fetchGoogle(key) {
     const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(key)}`);
-    if (!r.ok) throw new Error(`Google AI Studio: کد ${r.status} (کلید را بررسی کنید)`);
+    if (!r.ok) throw new Error(`Google AI: کد ${r.status} (کلید را بررسی کنید)`);
     const j = await r.json();
-    return (j.models || []).map((m) => {
-        const id = (m.name || '').replace(/^models\//, '');
-        return baseItem({
-            id, name: m.displayName || id, originProvider: 'Google', sourceProvider: 'Google AI Studio',
-            description: (m.description || '').slice(0, 180),
-            contextLabel: contextLabelOf(m.inputTokenLimit), contextLength: m.inputTokenLimit || 0,
-            modality: (m.supportedGenerationMethods || []).join(', ') || 'نامشخص',
-            endpoint: 'https://generativelanguage.googleapis.com/v1beta/models',
-            accessType: 'رایگان با محدودیت (لایه‌ی رایگان Google AI Studio)'
+    const all = j.models || [];
+    return all
+        .filter((m) => (m.inputTokenLimit || 0) > MIN_CONTEXT)
+        .map((m) => {
+            const id = (m.name || '').replace(/^models\//, '');
+            return row({
+                id, name: m.displayName || id, sourceProvider: 'Google AI',
+                contextLength: m.inputTokenLimit,
+                freeReason: 'لایه‌ی رایگان Google AI Studio',
+                endpoint: 'https://generativelanguage.googleapis.com/v1beta/models'
+            });
         });
-    });
 }
 
-// ---------- ۵. Cloudflare Workers AI (نیاز به کلید + Account ID) ----------
+// ---------- 5. Cloudflare Workers AI (نیاز به کلید + Account ID) ----------
 async function fetchCloudflare(token, accountId) {
     if (!accountId) throw new Error('Cloudflare: Account ID وارد نشده است');
     const r = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/models/search`, { headers: { Authorization: `Bearer ${token}` } });
     if (!r.ok) throw new Error(`Cloudflare: کد ${r.status} (کلید یا Account ID را بررسی کنید)`);
     const j = await r.json();
-    return (j.result || []).map((m) => baseItem({
-        id: m.id || m.name, name: m.name, originProvider: 'Cloudflare', sourceProvider: 'Cloudflare Workers AI',
-        description: (m.description || '').slice(0, 180),
-        modality: m.task?.name || 'نامشخص',
-        endpoint: `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/v1/chat/completions`,
-        accessType: 'رایگان با سهمیه‌ی روزانه'
-    }));
+    const all = j.result || [];
+    return all
+        .filter((m) => (m.context_length || 0) > MIN_CONTEXT)
+        .map((m) => row({
+            id: m.id || m.name, name: m.name, sourceProvider: 'Cloudflare',
+            contextLength: m.context_length || 0,
+            freeReason: 'سهمیه‌ی رایگان روزانه Cloudflare',
+            endpoint: `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/v1/chat/completions`
+        }));
+}
+
+// ---------- 6. Together AI (نیاز به کلید) ----------
+async function fetchTogether(key) {
+    const r = await fetch('https://api.together.xyz/v1/models', { headers: { Authorization: `Bearer ${key}` } });
+    if (!r.ok) throw new Error(`Together AI: کد ${r.status} (کلید را بررسی کنید)`);
+    const j = await r.json();
+    const all = Array.isArray(j) ? j : (j.data || []);
+    return all
+        .filter((m) => {
+            const p = m.pricing || {};
+            const zeroPrice = parseFloat(p.input) === 0 && parseFloat(p.output) === 0;
+            const free = isFreeId(m.id) || isFreeId(m.display_name || '') || zeroPrice;
+            return free && (m.context_length || 0) > MIN_CONTEXT;
+        })
+        .map((m) => row({
+            id: m.id, name: m.display_name || m.id, sourceProvider: 'Together AI',
+            contextLength: m.context_length,
+            freeReason: isFreeId(m.id) ? 'تگ :free' : 'قیمت 0.0000',
+            endpoint: 'https://api.together.xyz/v1/chat/completions'
+        }));
+}
+
+// ---------- 7. anymodel.org (نیاز به کلید) ----------
+async function fetchAnyModel(key) {
+    const r = await fetch('https://anymodel.org/v1/models', { headers: { Authorization: `Bearer ${key}`, Accept: 'application/json' } });
+    if (!r.ok) throw new Error(`anymodel.org: کد ${r.status} (کلید را بررسی کنید)`);
+    const j = await r.json();
+    const all = Array.isArray(j.data) ? j.data : (Array.isArray(j) ? j : []);
+    return all
+        .filter((m) => qualifies(m.id, m.pricing, m.context_length))
+        .map((m) => row({
+            id: m.id, name: m.name || m.id, sourceProvider: 'anymodel.org',
+            contextLength: m.context_length,
+            freeReason: isFreeId(m.id) ? 'تگ :free' : 'قیمت 0.0000',
+            endpoint: 'https://anymodel.org/v1/chat/completions'
+        }));
 }
 
 module.exports = async (req, res) => {
@@ -183,35 +180,34 @@ module.exports = async (req, res) => {
         } catch { keys = {}; }
     }
 
-    let openRouterResult;
-    try {
-        openRouterResult = await fetchOpenRouter();
-    } catch (e) {
-        res.status(500).json({ success: false, error: e.message || 'خطا در دریافت اطلاعات از OpenRouter' });
-        return;
+    const errors = [];
+    const data = [];
+
+    async function run(label, promise) {
+        try {
+            const rows = await promise;
+            data.push(...rows);
+        } catch (e) {
+            errors.push(`${label}: ${e.message}`);
+        }
     }
 
-    const errors = [];
-    const extraData = [];
-    const tasks = [];
-
-    tasks.push(fetchHFRouter().then((r) => extraData.push(...r.data)).catch((e) => errors.push('Hugging Face Router: ' + e.message)));
-    if (keys.unorouter) tasks.push(fetchUnoRouter(keys.unorouter).then((d) => extraData.push(...d)).catch((e) => errors.push(e.message)));
-    if (keys.google) tasks.push(fetchGoogle(keys.google).then((d) => extraData.push(...d)).catch((e) => errors.push(e.message)));
-    if (keys.cloudflareToken) tasks.push(fetchCloudflare(keys.cloudflareToken, keys.cloudflareAccountId).then((d) => extraData.push(...d)).catch((e) => errors.push(e.message)));
+    const tasks = [run('OpenRouter', fetchOpenRouter())];
+    if (keys.groq) tasks.push(run('Groq', fetchGroq(keys.groq)));
+    if (keys.unorouter) tasks.push(run('UnoRouter', fetchUnoRouter(keys.unorouter)));
+    if (keys.google) tasks.push(run('Google AI', fetchGoogle(keys.google)));
+    if (keys.cloudflareToken) tasks.push(run('Cloudflare', fetchCloudflare(keys.cloudflareToken, keys.cloudflareAccountId)));
+    if (keys.together) tasks.push(run('Together AI', fetchTogether(keys.together)));
+    if (keys.anymodel) tasks.push(run('anymodel.org', fetchAnyModel(keys.anymodel)));
 
     await Promise.all(tasks);
 
-    const data = [...openRouterResult.data, ...extraData]
-        .sort((a, b) => a.sourceProvider.localeCompare(b.sourceProvider) || a.name.localeCompare(b.name));
+    data.sort((a, b) => a.sourceProvider.localeCompare(b.sourceProvider) || a.name.localeCompare(b.name));
 
     res.status(200).json({
         success: true,
-        source: 'openrouter.ai + router.huggingface.co (هر دو بدون کلید) + پروایدرهایی که کلید برایشان وارد شده',
         fetchedAt: new Date().toISOString(),
-        apiLatencyMs: openRouterResult.meta.apiLatencyMs,
-        totalModelsScanned: openRouterResult.meta.totalModelsScanned,
-        freeModelsCount: data.length,
+        count: data.length,
         providerErrors: errors,
         data
     });
