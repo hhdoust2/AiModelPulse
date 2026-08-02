@@ -1,19 +1,29 @@
 // api/models.js — Vercel Serverless Function
 //
-// همیشه از OpenRouter (بدون کلید) داده می‌گیرد.
-// اگر کاربر در فرانت‌اند کلید API پروایدرهای دیگر را وارد کند، همان کلید
-// در بدنه‌ی درخواست POST برای این تابع فرستاده می‌شود و این تابع مستقیماً
-// و زنده از اندپوینت رسمی همان پروایدر (نه هیچ داده‌ی ثابت) مدل‌ها را می‌گیرد.
+// منابع بدون کلید (همیشه فعال):
+//   ۱. OpenRouter          → https://openrouter.ai/api/v1/models
+//   ۲. HF Router (چندپروایدری، شامل Groq/Together/Fireworks/Novita/Cerebras/...)
+//                           → https://router.huggingface.co/v1/models
+//      این endpoint برای هر مدل، آرایه‌ای از پروایدرها با قیمت واقعی،
+//      لتنسی واقعی (first_token_latency_ms) و throughput واقعی برمی‌گردونه.
+//      نسخه‌ی قبلی این کد از huggingface.co/api/models با sort=trending
+//      استفاده می‌کرد که پارامتر معتبری نیست و ۴۰۰ برمی‌گردوند — همینجا حذف شد.
 //
-// نکته درباره‌ی «GitHub Models»: این سرویس در تاریخ ۳۰ ژوئیه ۲۰۲۶ توسط گیت‌هاب
-// به‌طور کامل تعطیل شد، به همین دلیل عمداً در این پروژه حذف شده است.
+// منابعی که به کلید کاربر نیاز دارند (اختیاری، از پنل «کلیدهای API»):
+//   ۳. UnoRouter            → https://api.unorouter.com/v1/models  (Authorization: Bearer)
+//   ۴. Google AI Studio     → https://generativelanguage.googleapis.com/v1beta/models?key=
+//   ۵. Cloudflare Workers AI→ .../accounts/{id}/ai/models/search    (Authorization: Bearer + Account ID)
+//
+// نکته‌ی «GitHub Models»: این سرویس در ۳۰ ژوئیه ۲۰۲۶ توسط گیت‌هاب کاملاً تعطیل شد، به همین دلیل در این پروژه حذف شده است.
+// نکته‌ی SiliconFlow/Together/Fireworks/Novita/Groq با کلید مجزا: چون HF Router همه‌ی این‌ها را
+// بدون هیچ کلیدی و با داده‌ی دقیق‌تر (قیمت/لتنسی واقعی) پوشش می‌دهد، فیلدهای کلید جداگانه‌شان حذف شد.
 
 function baseItem(fields) {
     return Object.assign({
         id: '', name: '', originProvider: '', sourceProvider: '', description: '',
         contextLabel: 'نامشخص', contextLength: 0, modality: 'نامشخص', isVision: false,
         reasoning: false, createdDate: null, knowledgeCutoff: null, endpoint: '',
-        accessType: 'نامشخص'
+        accessType: 'نامشخص', latencyMs: null, throughput: null
     }, fields);
 }
 
@@ -22,7 +32,7 @@ function contextLabelOf(tokens) {
     return tokens >= 1000 ? Math.round(tokens / 1000) + 'k' : String(tokens);
 }
 
-// ---------- OpenRouter (بدون کلید) ----------
+// ---------- ۱. OpenRouter (بدون کلید) ----------
 async function fetchOpenRouter() {
     const start = Date.now();
     const upstream = await fetch('https://openrouter.ai/api/v1/models', { headers: { Accept: 'application/json' } });
@@ -30,9 +40,21 @@ async function fetchOpenRouter() {
     if (!upstream.ok) throw new Error(`OpenRouter با کد ${upstream.status} پاسخ داد`);
     const json = await upstream.json();
     const all = Array.isArray(json.data) ? json.data : [];
+    // «رایگان» یعنی هیچ زیرفیلدی از pricing (prompt, completion, image, audio,
+    // request, web_search, internal_reasoning, input_cache_*, ...) هزینه‌ای نداشته باشد.
+    // نسخه‌ی قبلی فقط prompt/completion را چک می‌کرد؛ در نتیجه مدل‌هایی مثل Lyria
+    // (تولید موسیقی) که قیمتشان در فیلدهای دیگری مثل image/audio است، اشتباهاً
+    // رایگان به‌حساب می‌آمدند.
     const free = all.filter((m) => {
-        const p = m.pricing || {};
-        return parseFloat(p.prompt) === 0 && parseFloat(p.completion) === 0;
+        const p = m.pricing;
+        if (!p || typeof p !== 'object') return false;
+        const keys = Object.keys(p);
+        if (keys.length === 0) return false;
+        return keys.every((key) => {
+            const num = parseFloat(p[key]);
+            if (Number.isNaN(num)) return true; // فیلد غیرعددی، نادیده گرفته می‌شود
+            return num === 0;
+        });
     });
     const data = free.map((m) => baseItem({
         id: m.id,
@@ -53,20 +75,66 @@ async function fetchOpenRouter() {
     return { data, meta: { totalModelsScanned: all.length, apiLatencyMs } };
 }
 
-// ---------- پروایدرهایی که نیاز به کلید کاربر دارند ----------
-async function fetchGroq(key) {
-    const r = await fetch('https://api.groq.com/openai/v1/models', { headers: { Authorization: `Bearer ${key}` } });
-    if (!r.ok) throw new Error(`Groq: کد ${r.status} (کلید را بررسی کنید)`);
+// ---------- ۲. HF Router — چندپروایدری، بدون کلید، قیمت/لتنسی واقعی ----------
+async function fetchHFRouter() {
+    const r = await fetch('https://router.huggingface.co/v1/models', { headers: { Accept: 'application/json' } });
+    if (!r.ok) throw new Error(`Hugging Face Router: کد ${r.status}`);
     const j = await r.json();
-    return (j.data || []).map((m) => baseItem({
-        id: m.id, name: m.id, originProvider: m.owned_by || 'Groq', sourceProvider: 'Groq',
-        contextLabel: contextLabelOf(m.context_window), contextLength: m.context_window || 0,
-        createdDate: m.created ? new Date(m.created * 1000).toISOString().slice(0, 10) : null,
-        endpoint: 'https://api.groq.com/openai/v1/chat/completions',
-        accessType: 'رایگان (با کلید شخصی شما)'
-    }));
+    const models = Array.isArray(j.data) ? j.data : [];
+    const rows = [];
+
+    models.forEach((m) => {
+        const isVision = (m.architecture?.input_modalities || []).includes('image');
+        (m.providers || []).forEach((p) => {
+            if (p.status !== 'live') return;
+            const price = p.pricing || null;
+            const isFree = p.is_free === true || (price && parseFloat(price.input) === 0 && parseFloat(price.output) === 0);
+            if (!isFree) return; // فقط پروایدرهایی که واقعاً رایگانند نگه داشته می‌شوند
+
+            rows.push(baseItem({
+                id: m.id,
+                name: m.id,
+                originProvider: m.owned_by || (m.id.split('/')[0] || 'نامشخص'),
+                sourceProvider: `Hugging Face → ${p.provider}`,
+                contextLabel: contextLabelOf(p.context_length),
+                contextLength: p.context_length || 0,
+                modality: (m.architecture?.input_modalities || []).join('+') || 'نامشخص',
+                isVision,
+                createdDate: m.created ? new Date(m.created * 1000).toISOString().slice(0, 10) : null,
+                endpoint: 'https://router.huggingface.co/v1/chat/completions',
+                accessType: 'رایگان (پروموشن موقت پروایدر، بدون کلید برای مشاهده)',
+                latencyMs: p.first_token_latency_ms ? Math.round(p.first_token_latency_ms) : null,
+                throughput: p.throughput ? Math.round(p.throughput * 10) / 10 : null
+            }));
+        });
+    });
+
+    return { data: rows, meta: { totalModelsScanned: models.length } };
 }
 
+// ---------- ۳. UnoRouter (نیاز به کلید شخصی) ----------
+async function fetchUnoRouter(key) {
+    const r = await fetch('https://api.unorouter.com/v1/models', { headers: { Authorization: `Bearer ${key}`, Accept: 'application/json' } });
+    if (!r.ok) throw new Error(`UnoRouter: کد ${r.status} (کلید را بررسی کنید)`);
+    const j = await r.json();
+    const arr = Array.isArray(j.data) ? j.data : (Array.isArray(j) ? j : []);
+    return arr.map((m) => {
+        const id = m.id || '';
+        const looksFree = id.includes(':free');
+        return baseItem({
+            id, name: m.name || id,
+            originProvider: (id.split('/')[0] || 'UnoRouter'),
+            sourceProvider: 'UnoRouter',
+            contextLabel: contextLabelOf(m.context_length),
+            contextLength: m.context_length || 0,
+            createdDate: m.created ? new Date(m.created * 1000).toISOString().slice(0, 10) : null,
+            endpoint: 'https://api.unorouter.com/v1/chat/completions',
+            accessType: looksFree ? 'رایگان (تگ :free در شناسه)' : 'اعتباری/پولی (با کلید شخصی شما)'
+        });
+    });
+}
+
+// ---------- ۴. Google AI Studio (نیاز به کلید شخصی) ----------
 async function fetchGoogle(key) {
     const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(key)}`);
     if (!r.ok) throw new Error(`Google AI Studio: کد ${r.status} (کلید را بررسی کنید)`);
@@ -84,67 +152,7 @@ async function fetchGoogle(key) {
     });
 }
 
-async function fetchSiliconFlow(key) {
-    const r = await fetch('https://api.siliconflow.cn/v1/models', { headers: { Authorization: `Bearer ${key}` } });
-    if (!r.ok) throw new Error(`SiliconFlow: کد ${r.status} (کلید را بررسی کنید)`);
-    const j = await r.json();
-    return (j.data || []).map((m) => baseItem({
-        id: m.id, name: m.id, originProvider: (m.id.split('/')[0] || 'SiliconFlow'), sourceProvider: 'SiliconFlow',
-        endpoint: 'https://api.siliconflow.cn/v1/chat/completions',
-        accessType: 'اعتباری/پولی (چند مدل محدود رایگان)'
-    }));
-}
-
-async function fetchTogether(key) {
-    const r = await fetch('https://api.together.xyz/v1/models', { headers: { Authorization: `Bearer ${key}` } });
-    if (!r.ok) throw new Error(`Together AI: کد ${r.status} (کلید را بررسی کنید)`);
-    const j = await r.json();
-    const arr = Array.isArray(j) ? j : (j.data || []);
-    return arr.map((m) => baseItem({
-        id: m.id, name: m.display_name || m.id, originProvider: m.organization || 'Together AI', sourceProvider: 'Together AI',
-        contextLabel: contextLabelOf(m.context_length), contextLength: m.context_length || 0,
-        endpoint: 'https://api.together.xyz/v1/chat/completions',
-        accessType: 'پولی (اعتبار آزمایشی اولیه)'
-    }));
-}
-
-async function fetchHuggingFace(key) {
-    const headers = { Accept: 'application/json' };
-    if (key) headers.Authorization = `Bearer ${key}`;
-    const r = await fetch('https://huggingface.co/api/models?pipeline_tag=text-generation&sort=trending&limit=40', { headers });
-    if (!r.ok) throw new Error(`Hugging Face: کد ${r.status}`);
-    const arr = await r.json();
-    return (Array.isArray(arr) ? arr : []).map((m) => baseItem({
-        id: m.id, name: m.id, originProvider: (m.id.split('/')[0] || 'Hugging Face'), sourceProvider: 'Hugging Face',
-        endpoint: 'https://router.huggingface.co/v1/chat/completions',
-        accessType: 'رایگان با محدودیت (Inference API)'
-    }));
-}
-
-async function fetchFireworks(key) {
-    const r = await fetch('https://api.fireworks.ai/v1/accounts/fireworks/models?filter=supports_serverless=true', { headers: { Authorization: `Bearer ${key}` } });
-    if (!r.ok) throw new Error(`Fireworks AI: کد ${r.status} (کلید را بررسی کنید)`);
-    const j = await r.json();
-    const arr = j.models || j.data || [];
-    return arr.map((m) => baseItem({
-        id: m.name || m.id, name: m.displayName || m.name || m.id, originProvider: 'Fireworks AI', sourceProvider: 'Fireworks AI',
-        endpoint: 'https://api.fireworks.ai/inference/v1/chat/completions',
-        accessType: 'پولی'
-    }));
-}
-
-async function fetchNovita(key) {
-    const r = await fetch('https://api.novita.ai/openai/v1/models', { headers: { Authorization: `Bearer ${key}` } });
-    if (!r.ok) throw new Error(`Novita AI: کد ${r.status} (کلید را بررسی کنید)`);
-    const j = await r.json();
-    return (j.data || []).map((m) => baseItem({
-        id: m.id, name: m.id, originProvider: (m.id.split('/')[0] || 'Novita AI'), sourceProvider: 'Novita AI',
-        createdDate: m.created ? new Date(m.created * 1000).toISOString().slice(0, 10) : null,
-        endpoint: 'https://api.novita.ai/openai/v1/chat/completions',
-        accessType: 'پولی (اعتبار آزمایشی اولیه)'
-    }));
-}
-
+// ---------- ۵. Cloudflare Workers AI (نیاز به کلید + Account ID) ----------
 async function fetchCloudflare(token, accountId) {
     if (!accountId) throw new Error('Cloudflare: Account ID وارد نشده است');
     const r = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/models/search`, { headers: { Authorization: `Bearer ${token}` } });
@@ -187,13 +195,9 @@ module.exports = async (req, res) => {
     const extraData = [];
     const tasks = [];
 
-    if (keys.groq) tasks.push(fetchGroq(keys.groq).then((d) => extraData.push(...d)).catch((e) => errors.push(e.message)));
+    tasks.push(fetchHFRouter().then((r) => extraData.push(...r.data)).catch((e) => errors.push('Hugging Face Router: ' + e.message)));
+    if (keys.unorouter) tasks.push(fetchUnoRouter(keys.unorouter).then((d) => extraData.push(...d)).catch((e) => errors.push(e.message)));
     if (keys.google) tasks.push(fetchGoogle(keys.google).then((d) => extraData.push(...d)).catch((e) => errors.push(e.message)));
-    if (keys.siliconflow) tasks.push(fetchSiliconFlow(keys.siliconflow).then((d) => extraData.push(...d)).catch((e) => errors.push(e.message)));
-    if (keys.together) tasks.push(fetchTogether(keys.together).then((d) => extraData.push(...d)).catch((e) => errors.push(e.message)));
-    if (keys.huggingface) tasks.push(fetchHuggingFace(keys.huggingface).then((d) => extraData.push(...d)).catch((e) => errors.push(e.message)));
-    if (keys.fireworks) tasks.push(fetchFireworks(keys.fireworks).then((d) => extraData.push(...d)).catch((e) => errors.push(e.message)));
-    if (keys.novita) tasks.push(fetchNovita(keys.novita).then((d) => extraData.push(...d)).catch((e) => errors.push(e.message)));
     if (keys.cloudflareToken) tasks.push(fetchCloudflare(keys.cloudflareToken, keys.cloudflareAccountId).then((d) => extraData.push(...d)).catch((e) => errors.push(e.message)));
 
     await Promise.all(tasks);
@@ -203,7 +207,7 @@ module.exports = async (req, res) => {
 
     res.status(200).json({
         success: true,
-        source: 'openrouter.ai (بدون کلید) + پروایدرهایی که کلید برایشان وارد شده',
+        source: 'openrouter.ai + router.huggingface.co (هر دو بدون کلید) + پروایدرهایی که کلید برایشان وارد شده',
         fetchedAt: new Date().toISOString(),
         apiLatencyMs: openRouterResult.meta.apiLatencyMs,
         totalModelsScanned: openRouterResult.meta.totalModelsScanned,
