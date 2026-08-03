@@ -32,7 +32,7 @@
         .status-chip b { color: #38bdf8; }
         .status-warn { color: #fbbf24; border-color: #78350f; }
 
-        .filters { display: grid; grid-template-columns: 2fr 1fr; gap: 0.5rem; margin-bottom: 0.75rem; }
+        .filters { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 0.5rem; margin-bottom: 0.75rem; }
         .input-box, .select-box { width: 100%; background-color: #111827; border: 1px solid #1f2937; border-radius: 0.35rem; padding: 0.4rem 0.6rem; color: #fff; font-family: inherit; font-size: 0.75rem; }
 
         .table-wrapper { width: 100%; overflow-x: auto; border: 1px solid #1f2937; border-radius: 0.5rem; background-color: #111827; }
@@ -44,6 +44,7 @@
         .model-id { font-family: monospace; color: #38bdf8; direction: ltr; display: inline-block; }
         .badge { font-size: 0.65rem; padding: 0.15rem 0.4rem; border-radius: 0.25rem; background: #064e3b; color: #6ee7b7; border: 1px solid #065f46; }
         .badge-src { background: #0c4a6e; color: #7dd3fc; border-color: #075985; }
+        .badge-warn { background: #451a03; color: #fbbf24; border-color: #78350f; }
         .copy-btn { background: none; border: none; color: #9ca3af; cursor: pointer; font-size: 0.7rem; padding: 0.1rem 0.3rem; }
         .copy-btn:hover { color: #22d3ee; }
         .loading-box { text-align: center; padding: 2rem 0; color: #9ca3af; font-size: 0.75rem; }
@@ -65,6 +66,8 @@
             <b>قانون این جدول (فقط همین):</b> از هر یک از ۷ پروایدر بالا، جداگانه، فقط مدل‌هایی می‌آیند که
             <b>۱)</b> در شناسه‌شان تگ <code>:free</code> دارند یا قیمتشان دقیقاً 0.0000 است، <b>و ۲)</b> طول کانتکست‌شان بالای
             <b>۱۰۰٬۰۰۰ توکن</b> است. هر دو شرط با هم لازم است. OpenRouter بدون کلید کار می‌کند؛ بقیه نیاز به کلید شخصی شما دارند (دکمه‌ی «کلیدها»).
+            <br><br>
+            <span style="color:#fbbf24;">⚠️ هشدار زرد</span> یعنی مدل خروجی غیرمتنی (صدا/تصویر) دارد و قیمت واقعی‌اش ممکن است به‌ازای هر خروجی (نه per-token) باشد — نوعی قیمت‌گذاری که در داده‌ی API قابل تأیید نیست؛ قبل از استفاده‌ی جدی، قیمتش را در سایت پروایدر دستی چک کنید.
         </div>
 
         <div id="keysPanel" class="keys-panel">
@@ -90,6 +93,11 @@
             <select id="providerFilter" onchange="resetAndFilter()" class="select-box">
                 <option value="all">همه‌ی پروایدرها</option>
             </select>
+            <select id="sortSelect" onchange="resetAndFilter()" class="select-box">
+                <option value="context_desc">کانتکست: زیاد ← کم</option>
+                <option value="context_asc">کانتکست: کم ← زیاد</option>
+                <option value="name_asc">نام: الفبایی</option>
+            </select>
         </div>
 
         <div id="loading" class="loading-box"><i class="fa-solid fa-spinner fa-spin"></i> در حال دریافت زنده...</div>
@@ -101,7 +109,9 @@
                         <th style="width:4%">ردیف</th>
                         <th style="width:32%; text-align:right;">شناسه / نام مدل</th>
                         <th>پروایدر</th>
-                        <th>کانتکست</th>
+                        <th id="contextHeader" onclick="toggleContextSort()" style="cursor:pointer; user-select:none;">
+                            کانتکست <i id="contextSortIcon" class="fa-solid fa-sort" style="font-size:0.6rem;"></i>
+                        </th>
                         <th>دلیل رایگان بودن</th>
                         <th style="width:18%">Endpoint</th>
                     </tr>
@@ -126,6 +136,17 @@
         let refreshTimer = null;
         const KEY_FIELDS = ['groq', 'unorouter', 'google', 'cloudflareAccountId', 'cloudflareToken', 'together', 'anymodel'];
         const STORAGE_KEY = 'freeAiModelsDashboard.apiKeys.v2';
+        let contextSortDir = 'none'; // 'none' | 'asc' | 'desc'
+
+        function toggleContextSort() {
+            contextSortDir = contextSortDir === 'none' ? 'desc' : (contextSortDir === 'desc' ? 'asc' : 'none');
+            const icon = document.getElementById('contextSortIcon');
+            icon.className = contextSortDir === 'asc' ? 'fa-solid fa-sort-up'
+                : contextSortDir === 'desc' ? 'fa-solid fa-sort-down'
+                : 'fa-solid fa-sort';
+            icon.style.color = contextSortDir === 'none' ? '' : '#38bdf8';
+            renderTable();
+        }
 
         function toggleKeysPanel() { document.getElementById('keysPanel').classList.toggle('open'); }
 
@@ -198,11 +219,22 @@
             currentPage = 1;
             const q = document.getElementById('searchInput').value.toLowerCase();
             const src = document.getElementById('providerFilter').value;
+            const sortBy = document.getElementById('sortSelect').value;
+
             filteredData = allData.filter(m => {
                 const matchQ = m.name.toLowerCase().includes(q) || m.id.toLowerCase().includes(q);
                 const matchSrc = src === 'all' || m.sourceProvider === src;
                 return matchQ && matchSrc;
             });
+
+            if (sortBy === 'context_desc') {
+                filteredData.sort((a, b) => (b.contextLength || 0) - (a.contextLength || 0));
+            } else if (sortBy === 'context_asc') {
+                filteredData.sort((a, b) => (a.contextLength || 0) - (b.contextLength || 0));
+            } else if (sortBy === 'name_asc') {
+                filteredData.sort((a, b) => a.name.localeCompare(b.name));
+            }
+
             renderTable();
         }
 
@@ -214,8 +246,15 @@
                 pag.classList.add('hidden');
                 return;
             }
+            let displayData = filteredData;
+            if (contextSortDir !== 'none') {
+                displayData = [...filteredData].sort((a, b) => {
+                    const diff = (a.contextLength || 0) - (b.contextLength || 0);
+                    return contextSortDir === 'asc' ? diff : -diff;
+                });
+            }
             const start = (currentPage - 1) * pageSize;
-            const items = filteredData.slice(start, start + pageSize);
+            const items = displayData.slice(start, start + pageSize);
             tbody.innerHTML = items.map((m, i) => `
                 <tr>
                     <td style="font-family:monospace;color:#9ca3af;">${start + i + 1}</td>
@@ -226,7 +265,7 @@
                     </td>
                     <td><span class="badge badge-src">${m.sourceProvider}</span></td>
                     <td>${m.contextLength ? Math.round(m.contextLength/1000) + 'k' : '—'}</td>
-                    <td><span class="badge">${m.freeReason}</span></td>
+                    <td><span class="badge ${m.priceVerified === false ? 'badge-warn' : ''}">${m.freeReason}</span></td>
                     <td>
                         <span class="model-id" style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;" title="${m.endpoint}">${m.endpoint}</span>
                         <button class="copy-btn" onclick="copyToClipboard('${m.endpoint}', this)"><i class="fa-regular fa-copy"></i></button>
