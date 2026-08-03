@@ -45,6 +45,9 @@
         .badge { font-size: 0.65rem; padding: 0.15rem 0.4rem; border-radius: 0.25rem; background: #064e3b; color: #6ee7b7; border: 1px solid #065f46; }
         .badge-src { background: #0c4a6e; color: #7dd3fc; border-color: #075985; }
         .badge-warn { background: #451a03; color: #fbbf24; border-color: #78350f; }
+        .uptime-good { background: #064e3b; color: #6ee7b7; border-color: #065f46; }
+        .uptime-warn { background: #451a03; color: #fbbf24; border-color: #78350f; }
+        .uptime-bad { background: #450a0a; color: #fca5a5; border-color: #7f1d1d; }
         .copy-btn { background: none; border: none; color: #9ca3af; cursor: pointer; font-size: 0.7rem; padding: 0.1rem 0.3rem; }
         .copy-btn:hover { color: #22d3ee; }
         .loading-box { text-align: center; padding: 2rem 0; color: #9ca3af; font-size: 0.75rem; }
@@ -68,6 +71,11 @@
             <b>۱۰۰٬۰۰۰ توکن</b> است. هر دو شرط با هم لازم است. OpenRouter بدون کلید کار می‌کند؛ بقیه نیاز به کلید شخصی شما دارند (دکمه‌ی «کلیدها»).
             <br><br>
             <span style="color:#fbbf24;">⚠️ هشدار زرد</span> یعنی مدل خروجی غیرمتنی (صدا/تصویر) دارد و قیمت واقعی‌اش ممکن است به‌ازای هر خروجی (نه per-token) باشد — نوعی قیمت‌گذاری که در داده‌ی API قابل تأیید نیست؛ قبل از استفاده‌ی جدی، قیمتش را در سایت پروایدر دستی چک کنید.
+            <br><br>
+            <b>ستون «آپ‌تایم (۳۰ دقیقه)»</b> فقط برای ردیف‌های OpenRouter پر می‌شود و از یک رجیستری مستقل و بدون‌کلید
+            (<code>github.com/dthinkr/openrouter-uptime</code>) خوانده می‌شود که هر ۳۰-۶۰ دقیقه مستقیم از API عمومی
+            OpenRouter آپ‌تایم واقعی هر مدل را ثبت می‌کند؛ اگر مدلی چند پروایدر پشتیبانش باشد، میانگین و بدترین وضعیتشان
+            نشان داده می‌شود. «—» یعنی داده‌ای برای آن مدل در این رجیستری نبود.
         </div>
 
         <div id="keysPanel" class="keys-panel">
@@ -113,6 +121,7 @@
                             کانتکست <i id="contextSortIcon" class="fa-solid fa-sort" style="font-size:0.6rem;"></i>
                         </th>
                         <th>دلیل رایگان بودن</th>
+                        <th>آپ‌تایم (۳۰ دقیقه)</th>
                         <th style="width:18%">Endpoint</th>
                     </tr>
                 </thead>
@@ -132,7 +141,7 @@
         let filteredData = [];
         let currentPage = 1;
         const pageSize = 50;
-        const AUTO_REFRESH_MS = 480 * 60 * 1000;
+        const AUTO_REFRESH_MS = 8 * 60 * 60 * 1000;
         let refreshTimer = null;
         const KEY_FIELDS = ['groq', 'unorouter', 'google', 'cloudflareAccountId', 'cloudflareToken', 'together', 'anymodel'];
         const STORAGE_KEY = 'freeAiModelsDashboard.apiKeys.v2';
@@ -164,6 +173,14 @@
         function saveKeysAndFetch() { localStorage.setItem(STORAGE_KEY, JSON.stringify(collectKeys())); fetchAllModels(); }
         function clearKeys() { localStorage.removeItem(STORAGE_KEY); KEY_FIELDS.forEach((f) => { const el = document.getElementById('key_' + f); if (el) el.value = ''; }); fetchAllModels(); }
 
+        function renderUptime(uptime30m, status) {
+            if (uptime30m === null || uptime30m === undefined) {
+                return '<span class="badge" style="color:#6b7280;border-color:#374151;" title="داده‌ای از رجیستری مستقل openrouter-uptime برای این مدل یافت نشد">—</span>';
+            }
+            const cls = status === 'down' ? 'uptime-bad' : (status === 'degraded' ? 'uptime-warn' : 'uptime-good');
+            return `<span class="badge ${cls}" title="منبع: github.com/dthinkr/openrouter-uptime (بدون کلید، هر ۳۰-۶۰ دقیقه)">${uptime30m}%</span>`;
+        }
+
         function copyToClipboard(text, btn) {
             navigator.clipboard.writeText(text).then(() => {
                 const orig = btn.innerHTML;
@@ -177,7 +194,7 @@
             if (error) { bar.innerHTML = `<span class="status-chip status-warn">خطا: ${error}</span>`; return; }
             let html = `<span class="status-chip">آخرین بروزرسانی: <b>${new Date(result.fetchedAt).toLocaleTimeString('fa-IR')}</b></span>`;
             html += `<span class="status-chip">تعداد کل: <b>${result.count}</b></span>`;
-            html += `<span class="status-chip">بروزرسانی خودکار بعدی: ۵ دقیقه دیگر</span>`;
+            html += `<span class="status-chip">بروزرسانی خودکار بعدی: ۸ ساعت دیگر</span>`;
             (result.providerErrors || []).forEach((e) => { html += `<span class="status-chip status-warn">${e}</span>`; });
             bar.innerHTML = html;
         }
@@ -242,7 +259,7 @@
             const tbody = document.getElementById('tableBody');
             const pag = document.getElementById('pagination');
             if (filteredData.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" style="padding:1.5rem;color:#6b7280;">هیچ مدلی با این معیار پیدا نشد.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" style="padding:1.5rem;color:#6b7280;">هیچ مدلی با این معیار پیدا نشد.</td></tr>';
                 pag.classList.add('hidden');
                 return;
             }
@@ -266,6 +283,7 @@
                     <td><span class="badge badge-src">${m.sourceProvider}</span></td>
                     <td>${m.contextLength ? Math.round(m.contextLength/1000) + 'k' : '—'}</td>
                     <td><span class="badge ${m.priceVerified === false ? 'badge-warn' : ''}">${m.freeReason}</span></td>
+                    <td>${renderUptime(m.uptime30m, m.uptimeStatus)}</td>
                     <td>
                         <span class="model-id" style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;" title="${m.endpoint}">${m.endpoint}</span>
                         <button class="copy-btn" onclick="copyToClipboard('${m.endpoint}', this)"><i class="fa-regular fa-copy"></i></button>
