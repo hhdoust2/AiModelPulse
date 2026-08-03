@@ -13,6 +13,36 @@
 
 const MIN_CONTEXT = 100000;
 
+// ---------- رجیستری مستقل آپ‌تایم برای OpenRouter (بدون کلید) ----------
+// منبع: github.com/dthinkr/openrouter-uptime — هر ۳۰-۶۰ دقیقه، بدون کلید،
+// مستقیم از API عمومی خود OpenRouter می‌خواند و uptime واقعیِ هر مدل/پروایدر
+// را ثبت می‌کند. اینجا برای هر شناسه‌ی مدل، میانگین up30m و بدترین state
+// (در بین همه‌ی پروایدرهایی که همان مدل را سرو می‌کنند) محاسبه می‌شود.
+const UPTIME_REGISTRY_URL = 'https://raw.githubusercontent.com/dthinkr/openrouter-uptime/main/status/latest.json';
+const STATE_RANK = { down: 3, degraded: 2, idle: 1, up: 0 };
+
+async function fetchUptimeRegistry() {
+    const r = await fetch(UPTIME_REGISTRY_URL, { headers: { Accept: 'application/json' } });
+    if (!r.ok) throw new Error(`رجیستری آپ‌تایم: کد ${r.status}`);
+    const j = await r.json();
+    const endpoints = Array.isArray(j.endpoints) ? j.endpoints : [];
+    const map = new Map();
+
+    endpoints.forEach((e) => {
+        if (!e.model) return;
+        const existing = map.get(e.model) || { sum: 0, count: 0, worstState: 'up', generated: j.generated };
+        if (typeof e.up30m === 'number') {
+            existing.sum += e.up30m;
+            existing.count += 1;
+        }
+        const rank = STATE_RANK[e.state] ?? 0;
+        if (rank > (STATE_RANK[existing.worstState] ?? 0)) existing.worstState = e.state;
+        map.set(e.model, existing);
+    });
+
+    return map;
+}
+
 function isFreeId(id) {
     return /:free\b/i.test(id || '');
 }
@@ -50,7 +80,7 @@ function qualifies(id, pricing, contextLength) {
 }
 
 function row(fields) {
-    return Object.assign({ id: '', name: '', sourceProvider: '', contextLength: 0, freeReason: '', endpoint: '', priceVerified: true }, fields);
+    return Object.assign({ id: '', name: '', sourceProvider: '', contextLength: 0, freeReason: '', endpoint: '', priceVerified: true, uptime30m: null, uptimeStatus: null }, fields);
 }
 
 // ---------- 1. OpenRouter (بدون کلید) ----------
@@ -61,7 +91,7 @@ function row(fields) {
 // مدل‌ها را با قطعیت پولی یا رایگان تشخیص دهد. به همین دلیل این مدل‌ها حذف
 // نمی‌شوند، اما با priceVerified=false علامت‌گذاری می‌شوند تا در فرانت‌اند
 // هشدار «قیمت این مدل تأیید نشده» کنارشان نمایش داده شود.
-async function fetchOpenRouter() {
+async function fetchOpenRouter(uptimeMap) {
     const r = await fetch('https://openrouter.ai/api/v1/models', { headers: { Accept: 'application/json' } });
     if (!r.ok) throw new Error(`OpenRouter: کد ${r.status}`);
     const j = await r.json();
@@ -71,12 +101,16 @@ async function fetchOpenRouter() {
         .map((m) => {
             const outputModalities = m.architecture?.output_modalities || ['text'];
             const isTextOutput = outputModalities.includes('text');
+            const up = uptimeMap ? uptimeMap.get(m.id) : null;
+            const uptime30m = up && up.count > 0 ? Math.round((up.sum / up.count) * 10) / 10 : null;
             return row({
                 id: m.id, name: m.name || m.id, sourceProvider: 'OpenRouter',
                 contextLength: m.context_length,
                 freeReason: (isFreeId(m.id) ? 'تگ :free' : 'قیمت 0.0000') + (isTextOutput ? '' : ' ⚠️ تأیید نشده'),
                 endpoint: 'https://openrouter.ai/api/v1/chat/completions',
-                priceVerified: isTextOutput
+                priceVerified: isTextOutput,
+                uptime30m,
+                uptimeStatus: up ? up.worstState : null
             });
         });
 }
@@ -214,7 +248,16 @@ module.exports = async (req, res) => {
         }
     }
 
-    const tasks = [run('OpenRouter', fetchOpenRouter())];
+    // رجیستری آپ‌تایم اختیاری است؛ اگر در دسترس نبود، بقیه‌ی داده‌ها بدون
+    // ستون uptime (uptime30m=null) برگردانده می‌شوند، نه اینکه کل درخواست fail شود.
+    let uptimeMap = null;
+    try {
+        uptimeMap = await fetchUptimeRegistry();
+    } catch (e) {
+        errors.push(`رجیستری آپ‌تایم (اختیاری): ${e.message}`);
+    }
+
+    const tasks = [run('OpenRouter', fetchOpenRouter(uptimeMap))];
     if (keys.groq) tasks.push(run('Groq', fetchGroq(keys.groq)));
     if (keys.unorouter) tasks.push(run('UnoRouter', fetchUnoRouter(keys.unorouter)));
     if (keys.google) tasks.push(run('Google AI', fetchGoogle(keys.google)));
