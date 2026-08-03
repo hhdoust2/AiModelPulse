@@ -50,10 +50,17 @@ function qualifies(id, pricing, contextLength) {
 }
 
 function row(fields) {
-    return Object.assign({ id: '', name: '', sourceProvider: '', contextLength: 0, freeReason: '', endpoint: '' }, fields);
+    return Object.assign({ id: '', name: '', sourceProvider: '', contextLength: 0, freeReason: '', endpoint: '', priceVerified: true }, fields);
 }
 
 // ---------- 1. OpenRouter (بدون کلید) ----------
+// نکته‌ی مهم: بعضی مدل‌ها (مثل Google Lyria — تولید موسیقی) قیمتشان به‌ازای
+// هر خروجی (per-song/per-clip) است، نه per-token، و این نوع قیمت‌گذاری اصلاً
+// در فیلدهای عددی pricing نمایان نمی‌شود (pricing.prompt/completion برایشان
+// همیشه 0 است، چون per-token نیستند) — یعنی هیچ چک عددی نمی‌تواند این
+// مدل‌ها را با قطعیت پولی یا رایگان تشخیص دهد. به همین دلیل این مدل‌ها حذف
+// نمی‌شوند، اما با priceVerified=false علامت‌گذاری می‌شوند تا در فرانت‌اند
+// هشدار «قیمت این مدل تأیید نشده» کنارشان نمایش داده شود.
 async function fetchOpenRouter() {
     const r = await fetch('https://openrouter.ai/api/v1/models', { headers: { Accept: 'application/json' } });
     if (!r.ok) throw new Error(`OpenRouter: کد ${r.status}`);
@@ -61,12 +68,17 @@ async function fetchOpenRouter() {
     const all = Array.isArray(j.data) ? j.data : [];
     return all
         .filter((m) => qualifies(m.id, m.pricing, m.context_length))
-        .map((m) => row({
-            id: m.id, name: m.name || m.id, sourceProvider: 'OpenRouter',
-            contextLength: m.context_length,
-            freeReason: isFreeId(m.id) ? 'تگ :free' : 'قیمت 0.0000',
-            endpoint: 'https://openrouter.ai/api/v1/chat/completions'
-        }));
+        .map((m) => {
+            const outputModalities = m.architecture?.output_modalities || ['text'];
+            const isTextOutput = outputModalities.includes('text');
+            return row({
+                id: m.id, name: m.name || m.id, sourceProvider: 'OpenRouter',
+                contextLength: m.context_length,
+                freeReason: (isFreeId(m.id) ? 'تگ :free' : 'قیمت 0.0000') + (isTextOutput ? '' : ' ⚠️ تأیید نشده'),
+                endpoint: 'https://openrouter.ai/api/v1/chat/completions',
+                priceVerified: isTextOutput
+            });
+        });
 }
 
 // ---------- 2. Groq (نیاز به کلید) ----------
