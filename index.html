@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>مدل‌های رایگان — Groq, OpenRouter, UnoRouter, Google AI, Cloudflare, Together, anymodel.org</title>
+    <title>جدول مدل ها</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;700&display=swap');
@@ -58,7 +58,7 @@
 <body>
     <div class="container">
         <header>
-            <h1>مدل‌های رایگان — Groq / OpenRouter / UnoRouter / Google AI / Cloudflare / Together / anymodel.org</h1>
+            <h1>جدول مدل ها</h1>
             <div>
                 <button onclick="toggleKeysPanel()" class="btn btn-secondary"><i class="fa-solid fa-key"></i> کلیدها</button>
                 <button onclick="fetchAllModels()" class="btn"><i class="fa-solid fa-rotate"></i> بروزرسانی</button>
@@ -143,7 +143,7 @@
         const pageSize = 50;
         const AUTO_REFRESH_MS = 8 * 60 * 60 * 1000;
         let refreshTimer = null;
-        const KEY_FIELDS = ['groq', 'unorouter', 'google', 'cloudflareAccountId', 'cloudflareToken', 'together', 'anymodel'];
+        const KEY_FIELDS = ['groq', 'unorouter', 'google', 'cloudflareAccountId', 'cloudflareToken', 'anymodel','cleanapis','apinex'];
         const STORAGE_KEY = 'freeAiModelsDashboard.apiKeys.v2';
         let contextSortDir = 'none'; // 'none' | 'asc' | 'desc'
 
