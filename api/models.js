@@ -190,7 +190,7 @@ async function fetchCloudflare(token, accountId) {
 
 // ---------- 6. Apinex (نیاز به کلید) ----------
 async function fetchApinex(key) {
-    const r = await fetch('https://api.apinex.bond/v1/v1/models', { headers: { Authorization: `Bearer ${key}` } });
+    const r = await fetch('https://api.apinex.bond/v1/models', { headers: { Authorization: `Bearer ${key}` } });
     if (!r.ok) throw new Error(`Apinex: کد ${r.status} (کلید را بررسی کنید)`);
     const j = await r.json();
     const all = Array.isArray(j) ? j : (j.data || []);
