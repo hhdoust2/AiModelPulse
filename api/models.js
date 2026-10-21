@@ -1,7 +1,7 @@
 // api/models.js — Vercel Serverless Function
 //
 // فقط ۷ پروایدر، هرکدام جداگانه: Groq, OpenRouter, UnoRouter, Google AI,
-// Cloudflare, Together, anymodel.org
+// Cloudflare, anymodel.org
 //
 // معیار «رایگان» (همان‌طور که خواسته شد):
 //   شرط ۱: شناسه‌ی مدل تگ ":free" دارد  یا  همه‌ی زیرفیلدهای pricing دقیقاً 0 هستند
@@ -9,7 +9,7 @@
 //   هر دو شرط باید همزمان برقرار باشند.
 //
 // OpenRouter بدون کلید کار می‌کند. بقیه (Groq, UnoRouter, Google AI,
-// Cloudflare, Together, anymodel.org) به کلید شخصی کاربر نیاز دارند.
+// Cloudflare, anymodel.org) به کلید شخصی کاربر نیاز دارند.
 
 const MIN_CONTEXT = 100000;
 
@@ -188,19 +188,19 @@ async function fetchCloudflare(token, accountId) {
         }));
 }
 
-// ---------- 6. Together AI (نیاز به کلید) ----------
-async function fetchTogether(key) {
-    const r = await fetch('https://api.together.xyz/v1/models', { headers: { Authorization: `Bearer ${key}` } });
-    if (!r.ok) throw new Error(`Together AI: کد ${r.status} (کلید را بررسی کنید)`);
+// ---------- 6. Apinex (نیاز به کلید) ----------
+async function fetchApinex(key) {
+    const r = await fetch('https://api.apinex.bond/v1/v1/models', { headers: { Authorization: `Bearer ${key}` } });
+    if (!r.ok) throw new Error(`Apinex: کد ${r.status} (کلید را بررسی کنید)`);
     const j = await r.json();
     const all = Array.isArray(j) ? j : (j.data || []);
     return all
         .filter((m) => qualifies(m.id, m.pricing, m.context_length))
         .map((m) => row({
-            id: m.id, name: m.display_name || m.id, sourceProvider: 'Together AI',
+            id: m.id, name: m.display_name || m.id, sourceProvider: 'Apinex',
             contextLength: m.context_length,
             freeReason: isFreeId(m.id) ? 'تگ :free' : 'قیمت 0.0000',
-            endpoint: 'https://api.together.xyz/v1/chat/completions'
+            endpoint: 'https://api.apinex.bond/v1/chat/completions'
         }));
 }
 
@@ -262,7 +262,7 @@ module.exports = async (req, res) => {
     if (keys.unorouter) tasks.push(run('UnoRouter', fetchUnoRouter(keys.unorouter)));
     if (keys.google) tasks.push(run('Google AI', fetchGoogle(keys.google)));
     if (keys.cloudflareToken) tasks.push(run('Cloudflare', fetchCloudflare(keys.cloudflareToken, keys.cloudflareAccountId)));
-    if (keys.together) tasks.push(run('Together AI', fetchTogether(keys.together)));
+    if (keys.apinex) tasks.push(run('Apinex', fetchApinex(keys.apinex)));
     if (keys.anymodel) tasks.push(run('anymodel.org', fetchAnyModel(keys.anymodel)));
 
     await Promise.all(tasks);
